@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>친구 파이터</title>
+<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+
+<div id="app">
+<div id="stage">
+
+  <!-- 캐릭터 선택 화면 -->
+  <div id="selectScreen" class="screen">
+    <h1>친구 파이터</h1>
+    <p class="subtitle">캐릭터를 선택하세요</p>
+    <div class="selectGrid" id="selectGrid"></div>
+    <p class="hint">방향키 이동/점프/앉기 · Z X C V 공격 · A S D 필살기 · Space 궁극기 · Shift 서서 막기 · Shift+↓ 앉아 막기</p>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen" class="screen hidden">
+    <div id="hud">
+      <div class="fighterHud left">
+        <img id="p1Portrait" class="portrait" />
+        <div class="bars">
+          <div class="name" id="p1Name"></div>
+          <div class="hpBarOuter"><div class="hpBar" id="p1Hp"></div></div>
+          <div class="gaugeBarOuter"><div class="gaugeBar special" id="p1SpecialGauge"></div></div>
+          <div class="gaugeBarOuter"><div class="gaugeBar ult" id="p1UltGauge"></div></div>
+        </div>
+      </div>
+      <div class="timer" id="timer">60</div>
+      <div class="fighterHud right">
+        <div class="bars">
+          <div class="name" id="p2Name"></div>
+          <div class="hpBarOuter"><div class="hpBar" id="p2Hp"></div></div>
+          <div class="gaugeBarOuter"><div class="gaugeBar special" id="p2SpecialGauge"></div></div>
+          <div class="gaugeBarOuter"><div class="gaugeBar ult" id="p2UltGauge"></div></div>
+        </div>
+        <img id="p2Portrait" class="portrait" />
+      </div>
+    </div>
+    <canvas id="canvas" width="960" height="540"></canvas>
+    <div id="moveBar">
+      <div class="moveKey" id="mkP1">Z 주먹1</div>
+      <div class="moveKey" id="mkP2">X 주먹2</div>
+      <div class="moveKey" id="mkK1">C 발차기1</div>
+      <div class="moveKey" id="mkK2">V 발차기2</div>
+      <div class="moveKey" id="mkS1">A 필살기1</div>
+      <div class="moveKey" id="mkS2">S 필살기2</div>
+      <div class="moveKey" id="mkS3">D 필살기3</div>
+      <div class="moveKey ult" id="mkUlt">Space 궁극기</div>
+      <div class="moveKey" id="mkBlock">Shift 서서막기 · Shift+↓ 앉아막기</div>
+    </div>
+  </div>
+
+  <!-- 결과 화면 -->
+  <div id="resultScreen" class="screen hidden">
+    <h1 id="resultText">WIN</h1>
+    <button id="retryBtn">다시하기</button>
+  </div>
+
+</div>
+</div>
+
+<script src="js/characters.js?v=17"></script>
+<script src="js/main.js?v=17"></script>
+</body>
+</html>

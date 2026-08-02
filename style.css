@@ -1,0 +1,225 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #111;
+  color: #fff;
+  font-family: "Malgun Gothic", "Segoe UI", sans-serif;
+  overflow: hidden;
+  height: 100%;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stage {
+  width: 1000px;
+  height: 760px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  flex-shrink: 0;
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.hidden { display: none !important; }
+
+h1 {
+  font-size: 48px;
+  margin: 0 0 4px;
+  letter-spacing: 2px;
+  text-shadow: 3px 3px 0 #ff3b3b;
+}
+
+.subtitle { color: #aaa; margin: 0 0 24px; }
+
+.selectGrid {
+  display: flex;
+  gap: 24px;
+}
+
+.selectCard {
+  width: 220px;
+  background: #1c1c1c;
+  border: 3px solid #333;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.selectCard:hover {
+  transform: translateY(-6px);
+  border-color: #ff3b3b;
+}
+
+.selectCard img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #000;
+}
+
+.selectCard .charName {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.hint {
+  margin-top: 28px;
+  color: #888;
+  font-size: 13px;
+}
+
+#gameScreen {
+  width: 960px;
+}
+
+#hud {
+  width: 960px;
+  display: flex;
+  align-items: center;
+  padding: 8px 6px;
+  gap: 10px;
+}
+
+.fighterHud {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fighterHud.right { flex-direction: row-reverse; text-align: right; }
+
+.portrait {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #000;
+}
+
+.bars { flex: 1; }
+
+.name { font-size: 14px; font-weight: bold; margin-bottom: 3px; }
+
+.hpBarOuter {
+  width: 100%;
+  height: 16px;
+  background: #400;
+  border: 2px solid #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fighterHud.right .hpBarOuter { direction: rtl; }
+
+.hpBar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(#7CFC00, #3ea300);
+  transition: width 0.15s linear;
+}
+
+.gaugeBarOuter {
+  width: 100%;
+  height: 8px;
+  background: #223;
+  border: 1px solid #000;
+  border-radius: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.fighterHud.right .gaugeBarOuter { direction: rtl; }
+
+.gaugeBar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(#3bd6ff, #0080a0);
+  transition: width 0.15s linear;
+}
+
+.gaugeBar.special {
+  background: linear-gradient(#3bd6ff, #0080a0);
+}
+
+.gaugeBar.ult {
+  background: linear-gradient(#ffd23b, #b8860b);
+}
+
+.timer {
+  width: 60px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: bold;
+  background: #000;
+  border-radius: 6px;
+  padding: 4px 0;
+}
+
+#canvas {
+  background: #000;
+  display: block;
+  border: 3px solid #333;
+  border-radius: 6px;
+}
+
+#moveBar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.moveKey {
+  background: #1c1c1c;
+  border: 1px solid #444;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.moveKey.ult {
+  border-color: #3bd6ff;
+  color: #3bd6ff;
+}
+
+#resultScreen h1 {
+  font-size: 72px;
+}
+
+#retryBtn {
+  margin-top: 16px;
+  padding: 12px 28px;
+  font-size: 18px;
+  background: #ff3b3b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#retryBtn:hover { background: #ff5b5b; }
