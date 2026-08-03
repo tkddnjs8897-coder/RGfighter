@@ -2,11 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>친구 파이터</title>
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
+
+<div id="rotateHint">📱↻<br>가로 모드로 돌려서 플레이해주세요</div>
 
 <div id="app">
 <div id="stage">
@@ -42,7 +44,9 @@
         <img id="p2Portrait" class="portrait" />
       </div>
     </div>
-    <canvas id="canvas" width="960" height="540"></canvas>
+    <div id="canvasWrap">
+      <canvas id="canvas" width="960" height="540"></canvas>
+    </div>
     <div id="moveBar">
       <div class="moveKey" id="mkP1">Z 주먹1</div>
       <div class="moveKey" id="mkP2">X 주먹2</div>
@@ -65,7 +69,34 @@
 </div>
 </div>
 
-<script src="js/characters.js?v=23"></script>
-<script src="js/main.js?v=23"></script>
+<!-- 모바일 터치 컨트롤: #stage의 scale() 밖에 둬서 화면이 아무리 축소돼도 버튼 크기는 그대로 유지됨 -->
+<div id="touchControls" class="hidden">
+  <div class="tcCluster tcLeft">
+    <div class="tcDpad">
+      <button class="tcBtn tcDpadUp" data-key="ArrowUp">▲</button>
+      <button class="tcBtn tcDpadLeft" data-key="ArrowLeft">◀</button>
+      <button class="tcBtn tcDpadDown" data-key="ArrowDown">▼</button>
+      <button class="tcBtn tcDpadRight" data-key="ArrowRight">▶</button>
+    </div>
+    <button class="tcBtn tcGuardBtn" data-key="ShiftLeft">막기</button>
+  </div>
+  <div class="tcCluster tcRight">
+    <div class="tcSpecialRow">
+      <button class="tcBtn tcSmall" data-key="KeyA">A</button>
+      <button class="tcBtn tcSmall" data-key="KeyS">S</button>
+      <button class="tcBtn tcSmall" data-key="KeyD">D</button>
+    </div>
+    <button class="tcBtn tcUltBtn" data-key="Space">궁극기</button>
+    <div class="tcAtkPad">
+      <button class="tcBtn tcAtkX" data-key="KeyX">X</button>
+      <button class="tcBtn tcAtkZ" data-key="KeyZ">Z</button>
+      <button class="tcBtn tcAtkV" data-key="KeyV">V</button>
+      <button class="tcBtn tcAtkC" data-key="KeyC">C</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/characters.js?v=25"></script>
+<script src="js/main.js?v=25"></script>
 </body>
 </html>

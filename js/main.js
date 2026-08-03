@@ -24,11 +24,13 @@ function fitStage() {
   stageEl.style.transform = `scale(${scale})`;
 }
 window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', fitStage);
 fitStage();
 
 const selectScreen = document.getElementById('selectScreen');
 const gameScreen = document.getElementById('gameScreen');
 const resultScreen = document.getElementById('resultScreen');
+const touchControlsEl = document.getElementById('touchControls');
 const selectGrid = document.getElementById('selectGrid');
 const resultText = document.getElementById('resultText');
 const retryBtn = document.getElementById('retryBtn');
@@ -91,6 +93,18 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true;
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// 모바일 터치 컨트롤 - 버튼이 곧 키보드와 같은 keys[] 상태를 채워주므로
+// 게임 로직(판정/이동) 쪽은 입력 수단을 신경 쓸 필요가 없다
+document.querySelectorAll('#touchControls .tcBtn').forEach(btn => {
+  const code = btn.dataset.key;
+  const press = e => { e.preventDefault(); keys[code] = true; btn.classList.add('pressed'); };
+  const release = e => { if (e) e.preventDefault(); keys[code] = false; btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', press);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+});
 
 // ----- Fighter 클래스 -----
 class Fighter {
@@ -184,6 +198,7 @@ function startMatch(playerCharId) {
   selectScreen.classList.add('hidden');
   resultScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
+  touchControlsEl.classList.remove('hidden');
   timerEl.textContent = ROUND_TIME;
 
   lastTs = performance.now();
@@ -194,6 +209,7 @@ function startMatch(playerCharId) {
 retryBtn.addEventListener('click', () => {
   resultScreen.classList.add('hidden');
   selectScreen.classList.remove('hidden');
+  touchControlsEl.classList.add('hidden');
   running = false;
 });
 
@@ -415,6 +431,7 @@ function endMatch(winner) {
   running = false;
   gameScreen.classList.add('hidden');
   resultScreen.classList.remove('hidden');
+  touchControlsEl.classList.add('hidden');
   if (!winner) {
     resultText.textContent = '무승부';
     resultText.style.color = '#ccc';

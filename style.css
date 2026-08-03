@@ -190,11 +190,127 @@ h1 {
   padding: 4px 0;
 }
 
+#canvasWrap {
+  position: relative;
+  width: 960px;
+  height: 540px;
+}
+
 #canvas {
   background: #000;
   display: block;
   border: 3px solid #333;
   border-radius: 6px;
+  width: 100%;
+  height: 100%;
+}
+
+/* ----- 모바일 터치 컨트롤 ----- */
+/* #stage(transform: scale) 바깥의 body 직속 요소라서 화면 배율과 무관하게
+   항상 실제 화면 기준 고정 크기로 표시된다. 데스크톱(마우스)에서는 숨기고,
+   터치 기기에서 게임 화면일 때만 노출 (표시 여부는 .hidden 클래스로 JS가 제어) */
+#touchControls {
+  display: none;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 500;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #touchControls { display: block; }
+}
+
+.tcCluster {
+  position: absolute;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.tcCluster.tcLeft { left: 16px; }
+.tcCluster.tcRight { right: 16px; flex-direction: column; align-items: center; gap: 6px; }
+
+.tcBtn {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: rgba(20, 20, 30, 0.55);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.tcBtn.pressed {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: #fff;
+}
+
+.tcDpad {
+  position: relative;
+  width: 132px;
+  height: 132px;
+}
+
+.tcDpad .tcBtn { position: absolute; width: 44px; height: 44px; }
+.tcDpadUp { top: 0; left: 44px; }
+.tcDpadLeft { top: 44px; left: 0; }
+.tcDpadDown { top: 88px; left: 44px; }
+.tcDpadRight { top: 44px; left: 88px; }
+
+.tcGuardBtn {
+  width: 58px;
+  height: 58px;
+  font-size: 12px;
+  background: rgba(59, 214, 255, 0.3);
+}
+
+.tcSpecialRow { display: flex; gap: 8px; pointer-events: none; }
+.tcSpecialRow .tcBtn { width: 40px; height: 40px; font-size: 14px; background: rgba(224, 194, 90, 0.35); }
+
+.tcUltBtn {
+  width: 96px;
+  height: 40px;
+  border-radius: 20px;
+  font-size: 12px;
+  background: rgba(255, 210, 59, 0.4);
+  border-color: #ffd23b;
+}
+
+.tcAtkPad { position: relative; width: 150px; height: 150px; }
+.tcAtkPad .tcBtn { position: absolute; width: 52px; height: 52px; font-size: 17px; background: rgba(255, 91, 59, 0.35); }
+.tcAtkX { top: 0; left: 49px; }
+.tcAtkZ { top: 49px; left: 0; }
+.tcAtkV { top: 49px; left: 98px; }
+.tcAtkC { top: 98px; left: 49px; }
+
+#rotateHint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  font-size: 20px;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #rotateHint { display: flex; }
 }
 
 #moveBar {
