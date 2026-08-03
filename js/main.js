@@ -401,6 +401,7 @@ function tryStartAction(f, key) {
   f.phase = 'startup';
   f.stateTimer = move.startup;
   f.hasHitThisActive = false;
+  f.hasCountered = false;
   f.actionFacing = f.facing;
   if (key.startsWith('special')) f.specialGauge = Math.max(0, f.specialGauge - move.gaugeCost);
   else if (key === 'ultimate') f.ultGauge = 0;
@@ -425,6 +426,7 @@ function applyHit(attacker, defender, move, opts) {
 
   // 보험사기: 판정 중 피격당하면 대미지 무효화 + 반격
   if (defender.actionMove && defender.actionMove.type === 'counter' && defender.phase === 'active') {
+    defender.hasCountered = true;
     const counterDmg = defender.actionMove.counterDamage || 15;
     attacker.hp = Math.max(0, attacker.hp - counterDmg);
     attacker.hitFlash = 10;
@@ -433,6 +435,7 @@ function applyHit(attacker, defender, move, opts) {
     hitStop = 8; zoom = 1.12;
     gainGauge(defender, counterDmg * 1.2);
     if (defender.data.id === 'gura' && defender.actionMove.key === 'special3') {
+      spawnFloatingText(defender.x, GROUND_Y - 260, '고소 확정!', '#ff3b3b');
       spawnParticles(defender.x - 20, GROUND_Y - 260, '#ff3b3b', 6, 'spark');
       spawnParticles(defender.x + 20, GROUND_Y - 260, '#3b7bff', 6, 'spark');
     }
@@ -781,18 +784,27 @@ function handleFighterInput(f, opp, isCPU) {
       if (f.isGrounded) f.state = 'crouch'; // 앉아 막기 (로우킥 방어)
     } else if (shiftHeld) {
       if (f.isGrounded) f.state = 'block'; // 서서 막기 (하이킥 방어)
-    } else if (keys['ArrowUp']) {
-      if (f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
-    } else if (keys['ArrowDown']) {
-      if (f.isGrounded) f.state = 'crouch';
-    } else if (keys['ArrowLeft']) {
-      f.x -= MOVE_SPEED * f.speedMult;
-      if (f.isGrounded) { f.state = 'walk'; f.walkDir = -1; }
-    } else if (keys['ArrowRight']) {
-      f.x += MOVE_SPEED * f.speedMult;
-      if (f.isGrounded) { f.state = 'walk'; f.walkDir = 1; }
     } else {
-      if (f.isGrounded && (f.state === 'walk' || f.state === 'crouch' || f.state === 'block')) f.state = 'idle';
+      const wantLeft = keys['ArrowLeft'] && !keys['ArrowRight'];
+      const wantRight = keys['ArrowRight'] && !keys['ArrowLeft'];
+
+      // 점프 시작: 좌/우를 같이 눌러도(대각선 점프) 이 프레임에 바로 반영
+      if (keys['ArrowUp'] && f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
+
+      // 좌우 이동: 땅/공중 모두 적용 (공중에서는 대각선 점프 궤적 제어용 공중 이동)
+      if (wantLeft) {
+        f.x -= MOVE_SPEED * f.speedMult;
+        f.walkDir = -1;
+        if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
+      } else if (wantRight) {
+        f.x += MOVE_SPEED * f.speedMult;
+        f.walkDir = 1;
+        if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
+      } else if (keys['ArrowDown']) {
+        if (f.isGrounded) f.state = 'crouch';
+      } else if (f.isGrounded && (f.state === 'walk' || f.state === 'crouch' || f.state === 'block')) {
+        f.state = 'idle';
+      }
     }
   }
 
@@ -1019,6 +1031,13 @@ function updateFighter(f, opp) {
       }
 
       if (f.stateTimer <= 0) {
+        // 보험사기: 판정 중에 반격 성공을 못 했으면(=아무도 안 때렸으면) "합의금"이라도 챙긴다.
+        // 완전히 허탕은 아니게 소량 회복 + 문구 연출을 보장해준다.
+        if (move.type === 'counter' && !f.hasCountered && move.chipHeal) {
+          f.hp = Math.min(f.data.hp, f.hp + move.chipHeal);
+          spawnFloatingText(f.x, GROUND_Y - 220, move.chipCastText || '합의금 챙김', '#9ad24a');
+          spawnParticles(f.x, GROUND_Y - 120, '#9ad24a', 8, 'hit');
+        }
         f.phase = 'recovery';
         f.stateTimer = move.recovery;
       }

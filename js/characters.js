@@ -110,9 +110,10 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/gura2_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/gura2_hit.png', dir: 1 },
       special1: { src: 'assets/characters/gura2_special1.png', dir: 1 },
-      // 정치쑈/보험사기 원본 사진도 왼쪽을 보고 있어서(보험사기는 왼쪽을 손가락질하는 포즈) -1로 보정
-      special2: { src: 'assets/characters/gura2_special2.png', dir: -1 },
-      special3: { src: 'assets/characters/gura2_special3.png', dir: -1 }
+      // 정치쑈 원본 사진도 왼쪽을 보고 있어서 -1로 보정
+      special2: { src: 'assets/characters/gura2_special2.png', dir: -1 }
+      // special3(보험사기) 원본 사진은 몸통 쪽에 사각형으로 데이터가 지워져 있어(누끼 원본부터 결손,
+      // 복구 불가) 전용 포즈를 쓰지 않고 기본 스프라이트로 대체
     },
     // 궁극기(스즈키와 합체) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태는 idle로 대체.
     // 원본 사진들 전부 오토바이 앞바퀴/헤드라이트가 왼쪽을 향하고 있어서(=원본이 왼쪽을 봄)
@@ -122,7 +123,7 @@ const CHARACTERS = [
       punch1: { src: 'assets/characters/gura_ult_punch1.png', dir: -1 },
       punch2: { src: 'assets/characters/gura_ult_punch2.png', dir: -1 },
       kick1: { src: 'assets/characters/gura_ult_kick1.png', dir: -1 },
-      kick2: { src: 'assets/characters/gura_ult_kick2.png', dir: 1 },
+      // kick2 원본 사진은 다리 한쪽이 통째로 잘려서 나와 있어(누끼 원본부터 결손) 사용하지 않고 idle로 대체
       jump: { src: 'assets/characters/gura_ult_jump.png', dir: -1 },
       block: { src: 'assets/characters/gura_ult_block.png', dir: -1 }
     },
@@ -147,8 +148,12 @@ const CHARACTERS = [
         },
         {
           key: 'special3', name: '보험사기', castText: '너-고소', type: 'counter',
-          damage: 0, counterDamage: 24, range: 0,
-          startup: 10, active: 16, recovery: 20,
+          damage: 0, counterDamage: 30, range: 0,
+          // 판정 중에 안 맞아도(상대가 안 때려도) 그냥 넘어가지 않도록,
+          // "합의금"을 챙기는 개념으로 소량 회복 + 게이지 보전을 보장해준다.
+          // 진짜로 반격에 성공하면 그보다 훨씬 큰 데미지+연출로 보상.
+          chipHeal: 10, chipCastText: '합의금 챙김',
+          startup: 10, active: 20, recovery: 20,
           gaugeCost: 35, color: '#5b7fa6'
         }
       ],

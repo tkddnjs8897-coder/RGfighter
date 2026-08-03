@@ -138,7 +138,7 @@ h1 {
   height: 100%;
   width: 100%;
   background: linear-gradient(#7CFC00, #3ea300);
-  transition: width 0.15s linear;
+  transition: width 0.2s ease-out;
 }
 
 .gaugeBarOuter {
@@ -157,7 +157,7 @@ h1 {
   height: 100%;
   width: 0%;
   background: linear-gradient(#3bd6ff, #0080a0);
-  transition: width 0.15s linear;
+  transition: width 0.2s ease-out;
 }
 
 .gaugeBar.special {
@@ -403,9 +403,11 @@ h1 {
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 #retryBtn:hover { background: #ff5b5b; }
+#retryBtn:active { transform: scale(0.95); }
 
 .backBtn {
   margin-top: 18px;
@@ -416,6 +418,22 @@ h1 {
   border: 1px solid #444;
   border-radius: 6px;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
 .backBtn:hover { color: #fff; border-color: #888; }
+.backBtn:active { transform: scale(0.96); }
+
+/* ----- 화면 전환을 부드럽게 (선택 -> 맵선택 -> 대전 -> 결과) ----- */
+.screen:not(.hidden) {
+  animation: screenFadeIn 0.32s ease;
+}
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.selectCard {
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.selectCard:active { transform: translateY(-2px) scale(0.98); }
