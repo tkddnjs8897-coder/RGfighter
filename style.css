@@ -255,6 +255,31 @@ h1 {
   border-color: #fff;
 }
 
+/* 필살기/궁극기 게이지가 다 찼을 때 해당 터치 버튼이 반짝임 */
+.tcBtn.ready {
+  animation: gaugeReady 0.8s ease-in-out infinite;
+  border-color: #fff;
+}
+.tcSpecialRow .tcBtn.ready,
+.tcAtkPad .tcBtn.ready {
+  box-shadow: 0 0 10px 4px rgba(224, 194, 90, 0.9);
+}
+.tcUltBtn.ready {
+  box-shadow: 0 0 12px 5px rgba(255, 210, 59, 0.95);
+}
+
+/* 한글 기술명이 들어가는 버튼(공격/필살기) - 원형 대신 둥근 사각형 + 작은 글씨 */
+.tcBtn.tcLabel {
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1.15;
+  padding: 2px;
+  text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+}
+
 .tcDpad {
   position: relative;
   width: 132px;
@@ -274,8 +299,8 @@ h1 {
   background: rgba(59, 214, 255, 0.3);
 }
 
-.tcSpecialRow { display: flex; gap: 8px; pointer-events: none; }
-.tcSpecialRow .tcBtn { width: 40px; height: 40px; font-size: 14px; background: rgba(224, 194, 90, 0.35); }
+.tcSpecialRow { display: flex; gap: 6px; pointer-events: none; }
+.tcSpecialRow .tcBtn { width: 46px; height: 46px; font-size: 9px; background: rgba(224, 194, 90, 0.35); }
 
 .tcUltBtn {
   width: 96px;
@@ -286,12 +311,12 @@ h1 {
   border-color: #ffd23b;
 }
 
-.tcAtkPad { position: relative; width: 150px; height: 150px; }
-.tcAtkPad .tcBtn { position: absolute; width: 52px; height: 52px; font-size: 17px; background: rgba(255, 91, 59, 0.35); }
-.tcAtkX { top: 0; left: 49px; }
-.tcAtkZ { top: 49px; left: 0; }
-.tcAtkV { top: 49px; left: 98px; }
-.tcAtkC { top: 98px; left: 49px; }
+.tcAtkPad { position: relative; width: 170px; height: 170px; }
+.tcAtkPad .tcBtn { position: absolute; width: 58px; height: 58px; background: rgba(255, 91, 59, 0.35); }
+.tcAtkX { top: 0; left: 56px; }
+.tcAtkZ { top: 56px; left: 0; }
+.tcAtkV { top: 56px; left: 112px; }
+.tcAtkC { top: 112px; left: 56px; }
 
 #rotateHint {
   display: none;

@@ -31,6 +31,10 @@ const selectScreen = document.getElementById('selectScreen');
 const gameScreen = document.getElementById('gameScreen');
 const resultScreen = document.getElementById('resultScreen');
 const touchControlsEl = document.getElementById('touchControls');
+const tcS1El = document.getElementById('tcS1');
+const tcS2El = document.getElementById('tcS2');
+const tcS3El = document.getElementById('tcS3');
+const tcUltEl = document.querySelector('#touchControls .tcUltBtn');
 const selectGrid = document.getElementById('selectGrid');
 const resultText = document.getElementById('resultText');
 const retryBtn = document.getElementById('retryBtn');
@@ -195,6 +199,12 @@ function startMatch(playerCharId) {
   document.getElementById('mkS3').textContent = `D ${m.specials[2].name}`;
   document.getElementById('mkUlt').textContent = `Space ${m.ultimate.name}`;
 
+  // 모바일 터치 버튼도 실제 기술명으로 동기화 (필살기는 이름이 길어서 번호로 고정 표기)
+  document.getElementById('tcP1').textContent = m.punch1.name;
+  document.getElementById('tcP2').textContent = m.punch2.name;
+  document.getElementById('tcK1').textContent = m.kick1.name;
+  document.getElementById('tcK2').textContent = m.kick2.name;
+
   selectScreen.classList.add('hidden');
   resultScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
@@ -292,8 +302,11 @@ function tryStartAction(f, key) {
 
 // 필살기 게이지는 빨리, 궁극기 게이지는 천천히 찬다
 // (예전 값은 라운드가 끝날 때까지 필살기 한 번 못 써보는 경우가 잦아 상향)
-const SPECIAL_GAUGE_RATE = 2.6;
-const ULT_GAUGE_RATE = 0.65;
+const SPECIAL_GAUGE_RATE = 3.4;
+const ULT_GAUGE_RATE = 1.1;
+// 전투를 안 해도 라운드 안에 궁극기를 한 번은 써볼 수 있도록 매 프레임 조금씩 자동으로 차오름
+const PASSIVE_SPECIAL_GAUGE_PER_FRAME = 0.045;
+const PASSIVE_ULT_GAUGE_PER_FRAME = 0.03;
 function gainGauge(f, amount) {
   f.specialGauge = Math.min(100, f.specialGauge + amount * SPECIAL_GAUGE_RATE);
   f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE);
@@ -570,6 +583,13 @@ function update() {
 
   if (shake.time > 0) shake.time--;
   zoom += (1 - zoom) * 0.18;
+
+  if (!matchOver) {
+    p1.specialGauge = Math.min(100, p1.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
+    p2.specialGauge = Math.min(100, p2.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
+    p1.ultGauge = Math.min(100, p1.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME);
+    p2.ultGauge = Math.min(100, p2.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME);
+  }
 
   updateHUD();
 }
@@ -941,6 +961,13 @@ function updateHUD() {
   hud.p2SpecialGauge.classList.toggle('ready', p2.specialGauge >= minSpecialCost(p2));
   hud.p1UltGauge.classList.toggle('ready', p1.ultGauge >= 100);
   hud.p2UltGauge.classList.toggle('ready', p2.ultGauge >= 100);
+
+  // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
+  const p1Specials = p1.data.moves.specials;
+  tcS1El.classList.toggle('ready', p1.specialGauge >= p1Specials[0].gaugeCost);
+  tcS2El.classList.toggle('ready', p1.specialGauge >= p1Specials[1].gaugeCost);
+  tcS3El.classList.toggle('ready', p1.specialGauge >= p1Specials[2].gaugeCost);
+  tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
 }
 
 // ----- 렌더링 -----
@@ -1325,7 +1352,7 @@ function drawFighter(f) {
 
   ctx.restore();
 
-  // 황산 오라 지속 링
+  // 황산 오라 지속 링 (실제 판정 범위는 사실상 전체 화면이라 시각적 링 크기는 고정값 사용)
   if (f.auraTimer > 0) {
     const pulse = 0.35 + Math.sin(t * 6) * 0.15;
     ctx.save();
@@ -1333,7 +1360,7 @@ function drawFighter(f) {
     ctx.strokeStyle = (f.auraMove && f.auraMove.color) || '#a8ff3b';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(feetX, feetY - 90, (f.auraMove ? f.auraMove.range : 200) * 0.55, 0, Math.PI * 2);
+    ctx.arc(feetX, feetY - 90, 110, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }

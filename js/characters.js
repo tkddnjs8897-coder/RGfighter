@@ -36,9 +36,9 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/yang2_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/yang2_hit.png', dir: -1 },
       special1: { src: 'assets/characters/yang2_special1.png', dir: 1 },
-      special2: { src: 'assets/characters/yang2_special2.png', dir: 1 },
+      special2: { src: 'assets/characters/yang2_special2_full.png', dir: 1 },
       special3: { src: 'assets/characters/yang2_special3_full.png', dir: 1 },
-      ultimate: { src: 'assets/characters/yang2_ultimate.png', dir: 1 }
+      ultimate: { src: 'assets/characters/yang2_ultimate_full.png', dir: 1 }
     },
     hp: 100,
     moves: {
@@ -68,8 +68,9 @@ const CHARACTERS = [
         }
       ],
       ultimate: {
+        // 상대가 멀리 있어도 지속시간 내내 확실하게 맞도록 사실상 화면 전체 범위로 설정
         name: '황산 분사', castText: '신지드-모드', type: 'aura',
-        duration: 300, tickDamage: 6, tickInterval: 22, range: 200,
+        duration: 300, tickDamage: 7, tickInterval: 20, range: 999,
         startup: 16, active: 10, recovery: 20,
         color: '#a8ff3b'
       }
@@ -95,8 +96,9 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/gura2_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/gura2_hit.png', dir: 1 },
       special1: { src: 'assets/characters/gura2_special1.png', dir: 1 },
-      special2: { src: 'assets/characters/gura2_special2.png', dir: 1 },
-      special3: { src: 'assets/characters/gura2_special3.png', dir: 1 }
+      // 정치쑈/보험사기 원본 사진도 왼쪽을 보고 있어서(보험사기는 왼쪽을 손가락질하는 포즈) -1로 보정
+      special2: { src: 'assets/characters/gura2_special2.png', dir: -1 },
+      special3: { src: 'assets/characters/gura2_special3.png', dir: -1 }
     },
     // 궁극기(스즈키와 합체) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태는 idle로 대체.
     // 원본 사진들 전부 오토바이 앞바퀴/헤드라이트가 왼쪽을 향하고 있어서(=원본이 왼쪽을 봄)
