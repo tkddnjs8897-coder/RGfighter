@@ -112,7 +112,7 @@ CHARACTERS.forEach(c => {
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
 const COMING_SOON_CHARACTERS = [
   { name: '옥킴', portrait: 'assets/characters/okkim_portrait.jpg' },
-  { name: '형준', portrait: 'assets/characters/hyungjun_portrait.jpg' }
+  { name: '골절기', portrait: 'assets/characters/hyungjun_portrait.jpg' }
 ];
 COMING_SOON_CHARACTERS.forEach(c => {
   const card = document.createElement('div');
@@ -1468,19 +1468,25 @@ function drawFighter(f) {
       if (usingPose) {
         const pull = 6 * power;
         const lunge = 14 * power;
+        // 로우킥/하이킥 사진이 같은 걸 재사용하는 경우(메카모드)에도 구분되어 보이도록
+        // 하이킥은 몸을 더 크게 뒤로 젖히는 회전을 추가로 준다
+        const tiltMax = f.state === 'kick2' ? 16 : 3;
         if (f.phase === 'startup') {
           const p = 1 - Math.max(0, f.stateTimer) / mv.startup;
           offsetX = -f.actionFacing * lerp(0, pull, p);
+          rotate = -f.actionFacing * lerp(0, tiltMax * 0.3, p) * Math.PI / 180;
         } else if (f.phase === 'active') {
           const p = easeOutQuad(1 - Math.max(0, f.stateTimer) / mv.active);
           offsetX = f.actionFacing * lerp(-pull, lunge, p);
           scaleX = lerp(0.98, 1 + 0.03 * power, p);
           scaleY = lerp(1.01, 1 - 0.02 * power, p);
+          rotate = -f.actionFacing * lerp(tiltMax * 0.3, tiltMax, p) * Math.PI / 180;
         } else if (f.phase === 'recovery') {
           const p = easeInQuad(1 - Math.max(0, f.stateTimer) / mv.recovery);
           offsetX = f.actionFacing * lerp(lunge, 0, p);
           scaleX = lerp(1 + 0.03 * power, 1, p);
           scaleY = lerp(1 - 0.02 * power, 1, p);
+          rotate = -f.actionFacing * lerp(tiltMax, 0, p) * Math.PI / 180;
         }
         break;
       }
