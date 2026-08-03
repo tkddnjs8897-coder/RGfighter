@@ -123,7 +123,10 @@ const CHARACTERS = [
       punch1: { src: 'assets/characters/gura_ult_punch1.png', dir: -1 },
       punch2: { src: 'assets/characters/gura_ult_punch2.png', dir: -1 },
       kick1: { src: 'assets/characters/gura_ult_kick1.png', dir: -1 },
-      // kick2 원본 사진은 다리 한쪽이 통째로 잘려서 나와 있어(누끼 원본부터 결손) 사용하지 않고 idle로 대체
+      // kick2 원본 사진은 다리 한쪽이 통째로 잘려서 나와 있어(누끼 원본부터 결손) 사용 불가.
+      // idle로 대체하면 하이킥을 써도 아예 안 나가는 것처럼 보여서, 그나마 동작이 있는
+      // kick1 사진을 재사용해 최소한의 타격 동작은 보이게 한다
+      kick2: { src: 'assets/characters/gura_ult_kick1.png', dir: -1 },
       jump: { src: 'assets/characters/gura_ult_jump.png', dir: -1 },
       block: { src: 'assets/characters/gura_ult_block.png', dir: -1 }
     },

@@ -109,6 +109,29 @@ CHARACTERS.forEach(c => {
   selectGrid.appendChild(card);
 });
 
+// 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
+const COMING_SOON_CHARACTERS = [
+  { name: '옥킴', portrait: 'assets/characters/okkim_portrait.jpg' },
+  { name: '형준', portrait: 'assets/characters/hyungjun_portrait.jpg' }
+];
+COMING_SOON_CHARACTERS.forEach(c => {
+  const card = document.createElement('div');
+  card.className = 'selectCard locked';
+  const img = document.createElement('img');
+  img.src = c.portrait;
+  const nameEl = document.createElement('div');
+  nameEl.className = 'charName';
+  nameEl.textContent = c.name;
+  const lockedLabel = document.createElement('div');
+  lockedLabel.className = 'lockedLabel';
+  lockedLabel.textContent = '준비중';
+  card.appendChild(img);
+  card.appendChild(nameEl);
+  card.appendChild(lockedLabel);
+  // 클릭해도 아무 반응 없음 (아직 선택 불가)
+  selectGrid.appendChild(card);
+});
+
 // ----- 맵 선택 화면 구성 -----
 STAGES.forEach(s => {
   const card = document.createElement('div');

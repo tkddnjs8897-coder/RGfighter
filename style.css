@@ -54,6 +54,7 @@ h1 {
 }
 
 .selectCard {
+  position: relative;
   width: 220px;
   background: #1c1c1c;
   border: 3px solid #333;
@@ -67,6 +68,49 @@ h1 {
 .selectCard:hover {
   transform: translateY(-6px);
   border-color: #ff3b3b;
+}
+
+/* 아직 못 고르는 예정 캐릭터 카드 - 빗금 + "준비중" 표시, 클릭/호버 반응 없음 */
+.selectCard.locked {
+  cursor: not-allowed;
+}
+.selectCard.locked:hover {
+  transform: none;
+  border-color: #333;
+}
+.selectCard.locked img {
+  filter: grayscale(1) brightness(0.55);
+}
+.selectCard.locked::after {
+  content: '';
+  position: absolute;
+  top: 16px; left: 16px; right: 16px;
+  height: 220px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.6) 0px,
+    rgba(0, 0, 0, 0.6) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  pointer-events: none;
+}
+.selectCard.locked .lockedLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffd23b;
+  font-weight: bold;
+  font-size: 15px;
+  letter-spacing: 2px;
+  padding: 6px 16px;
+  border: 1px solid #ffd23b;
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .selectCard img {
