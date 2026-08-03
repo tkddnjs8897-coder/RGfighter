@@ -32,6 +32,7 @@ window.addEventListener('orientationchange', fitStage);
 fitStage();
 
 const selectScreen = document.getElementById('selectScreen');
+const mapScreen = document.getElementById('mapScreen');
 const gameScreen = document.getElementById('gameScreen');
 const resultScreen = document.getElementById('resultScreen');
 const touchControlsEl = document.getElementById('touchControls');
@@ -40,6 +41,7 @@ const tcS2El = document.getElementById('tcS2');
 const tcS3El = document.getElementById('tcS3');
 const tcUltEl = document.querySelector('#touchControls .tcUltBtn');
 const selectGrid = document.getElementById('selectGrid');
+const mapGrid = document.getElementById('mapGrid');
 const resultText = document.getElementById('resultText');
 const retryBtn = document.getElementById('retryBtn');
 const timerEl = document.getElementById('timer');
@@ -66,7 +68,14 @@ function loadImage(src) {
   imageCache[src] = img;
   return img;
 }
-const bgImage = loadImage('assets/characters/stage_bg.jpg');
+// 전투 배경(맵) 목록 - 캐릭터 선택 다음에 고르게 된다
+const STAGES = [
+  { id: 'yangman', name: '양만장', bg: 'assets/characters/stage_bg.jpg' },
+  { id: 'rsg', name: '알슥', bg: 'assets/characters/stage_bg2.jpg' }
+];
+STAGES.forEach(s => { s.img = loadImage(s.bg); });
+let currentStage = STAGES[0];
+
 CHARACTERS.forEach(c => {
   loadImage(c.sprite);
   loadImage(c.portrait);
@@ -79,6 +88,8 @@ CHARACTERS.forEach(c => {
 });
 
 // ----- 캐릭터 선택 화면 구성 -----
+// 캐릭터를 고르면 바로 시작하지 않고 맵 선택 화면으로 넘어간다
+let pendingCharId = null;
 CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard';
@@ -90,8 +101,36 @@ CHARACTERS.forEach(c => {
   nameEl.textContent = c.name;
   card.appendChild(img);
   card.appendChild(nameEl);
-  card.addEventListener('click', () => startMatch(c.id));
+  card.addEventListener('click', () => {
+    pendingCharId = c.id;
+    selectScreen.classList.add('hidden');
+    mapScreen.classList.remove('hidden');
+  });
   selectGrid.appendChild(card);
+});
+
+// ----- 맵 선택 화면 구성 -----
+STAGES.forEach(s => {
+  const card = document.createElement('div');
+  card.className = 'selectCard';
+  const img = document.createElement('img');
+  img.src = s.bg;
+  const nameEl = document.createElement('div');
+  nameEl.className = 'charName';
+  nameEl.textContent = s.name;
+  card.appendChild(img);
+  card.appendChild(nameEl);
+  card.addEventListener('click', () => {
+    currentStage = s;
+    mapScreen.classList.add('hidden');
+    startMatch(pendingCharId);
+  });
+  mapGrid.appendChild(card);
+});
+
+document.getElementById('mapBackBtn').addEventListener('click', () => {
+  mapScreen.classList.add('hidden');
+  selectScreen.classList.remove('hidden');
 });
 
 // ----- 입력 -----
@@ -1171,9 +1210,9 @@ function draw() {
     ctx.translate(-STAGE_W / 2, -STAGE_H / 2);
   }
 
-  // 배경 (실사진 스테이지, 로드 전이면 그라데이션으로 대체)
-  if (isUsable(bgImage)) {
-    ctx.drawImage(bgImage, -20, -20, STAGE_W + 40, STAGE_H + 40);
+  // 배경 (선택한 맵 실사진, 로드 전이면 그라데이션으로 대체)
+  if (isUsable(currentStage.img)) {
+    ctx.drawImage(currentStage.img, -20, -20, STAGE_W + 40, STAGE_H + 40);
     ctx.fillStyle = 'rgba(10,8,30,0.4)';
     ctx.fillRect(-20, -20, STAGE_W + 40, STAGE_H + 40);
   } else {

@@ -406,3 +406,16 @@ h1 {
 }
 
 #retryBtn:hover { background: #ff5b5b; }
+
+.backBtn {
+  margin-top: 18px;
+  padding: 8px 18px;
+  font-size: 13px;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #444;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.backBtn:hover { color: #fff; border-color: #888; }
