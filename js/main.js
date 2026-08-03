@@ -1,7 +1,7 @@
 // ===== 친구 파이터 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 4;
+const ASSET_VERSION = 6;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -1212,7 +1212,8 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
-  if (f.transformTimer > 0 && f.data.ultimateForm) {
+  // 변신형(transform)이든 오라형(aura) 궁극기든, 지속 중이면 전용 이미지 세트로 교체
+  if ((f.transformTimer > 0 || f.auraTimer > 0) && f.data.ultimateForm) {
     const entry = f.data.ultimateForm[f.state] || f.data.ultimateForm.idle;
     if (isUsable(entry && entry.img)) return entry;
   }

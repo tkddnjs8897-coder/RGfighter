@@ -40,6 +40,16 @@ const CHARACTERS = [
       special3: { src: 'assets/characters/yang2_special3_full.png', dir: 1 },
       ultimate: { src: 'assets/characters/yang2_ultimate_full.png', dir: 1 }
     },
+    // 신지드-모드(황산 분사) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태는 idle로 대체.
+    ultimateForm: {
+      punch1: { src: 'assets/characters/yang_ult_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/yang_ult_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/yang_ult_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/yang_ult_kick2.png', dir: 1 },
+      block: { src: 'assets/characters/yang_ult_block.png', dir: 1 },
+      jump: { src: 'assets/characters/yang_ult_jump.png', dir: 1 },
+      crouch: { src: 'assets/characters/yang_ult_crouch.png', dir: 1 }
+    },
     hp: 100,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
