@@ -157,12 +157,14 @@ class Fighter {
   get isGrounded() { return this.height <= 0; }
 }
 
-let p1, p2, projectiles, particles, strikes, props, floatingTexts, matchOver, matchTimer, lastTs, running, shake;
+let p1, p2, projectiles, particles, strikes, props, floatingTexts, rings, impactLines, matchOver, matchTimer, lastTs, running, shake;
 let hitStop = 0;
 let zoom = 1;
 let koBannerTimer = 0;
 let introPhase = null; // 'ready' -> 'go' -> null(전투 시작)
 let introTimer = 0;
+let flashTime = 0, flashColor = '#fff';
+let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff';
 
 // 상태 전환(공격류) 목록 - 판정 로직과 렌더 스무딩 강도 판단에 공용으로 사용
 const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
@@ -178,11 +180,15 @@ function startMatch(playerCharId) {
   strikes = [];
   props = [];
   floatingTexts = [];
+  rings = [];
+  impactLines = [];
   matchOver = false;
   matchTimer = ROUND_TIME;
   shake = { time: 0, mag: 0 };
   zoom = 1;
   koBannerTimer = 0;
+  flashTime = 0;
+  ultBannerTimer = 0;
   introPhase = 'ready';
   introTimer = 700;
 
@@ -474,6 +480,66 @@ function spawnParticles(x, y, color, count, type) {
   }
 }
 
+// ----- 필살기/궁극기 공용 연출 부품 -----
+// 화면 전체가 잠깐 번쩍이는 플래시 (궁극기 발동 등 결정적 순간에 사용)
+function triggerFlash(color, duration) {
+  flashColor = color;
+  flashTime = Math.max(flashTime, duration);
+}
+
+// 타격점에서 퍼져나가는 충격파 링
+function spawnRing(x, y, color, maxRadius, life) {
+  rings.push({ x, y, color, maxRadius, life: 0, maxLife: life });
+}
+
+// 궁극기 발동 시 화면 중앙에서 사방으로 뻗는 KOF 스타일 집중선
+function spawnImpactLines(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const ang = (i / count) * Math.PI * 2 + Math.random() * 0.15;
+    impactLines.push({ x, y, ang, color, life: 0, maxLife: 20 + Math.random() * 10, len: 60 + Math.random() * 60 });
+  }
+}
+
+function updateRings() {
+  for (let i = rings.length - 1; i >= 0; i--) {
+    rings[i].life++;
+    if (rings[i].life > rings[i].maxLife) rings.splice(i, 1);
+  }
+}
+function drawRing(r) {
+  const p = r.life / r.maxLife;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - p);
+  ctx.strokeStyle = r.color;
+  ctx.lineWidth = 4 * (1 - p) + 1;
+  ctx.beginPath();
+  ctx.arc(r.x, r.y, r.maxRadius * p, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function updateImpactLines() {
+  for (let i = impactLines.length - 1; i >= 0; i--) {
+    impactLines[i].life++;
+    if (impactLines[i].life > impactLines[i].maxLife) impactLines.splice(i, 1);
+  }
+}
+function drawImpactLine(l) {
+  const p = l.life / l.maxLife;
+  const grow = Math.min(1, p * 2.5);
+  const near = 20 + l.len * 0.3 * grow;
+  const far = 20 + l.len * grow;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - p);
+  ctx.strokeStyle = l.color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(l.x + Math.cos(l.ang) * near, l.y + Math.sin(l.ang) * near);
+  ctx.lineTo(l.x + Math.cos(l.ang) * far, l.y + Math.sin(l.ang) * far);
+  ctx.stroke();
+  ctx.restore();
+}
+
 // 필살기/궁극기 시전 순간(startup->active) 전용 연출. 종류별로 다르게 터진다.
 function spawnCastEffect(f, move) {
   const color = move.color || f.data.color;
@@ -482,7 +548,7 @@ function spawnCastEffect(f, move) {
   switch (move.type) {
     case 'dash':
       // 전방으로 쏘아지는 충격파
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 14; i++) {
         particles.push({
           x: f.x + f.actionFacing * 20, y: cy + (Math.random() - 0.5) * 30,
           vx: f.actionFacing * (6 + Math.random() * 4), vy: (Math.random() - 0.5) * 3,
@@ -501,10 +567,10 @@ function spawnCastEffect(f, move) {
       }
       break;
     case 'projectile':
-      spawnParticles(f.x + f.actionFacing * 40, cy, color, 10, 'hit');
+      spawnParticles(f.x + f.actionFacing * 40, cy, color, 14, 'hit');
       break;
     case 'heal':
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 16; i++) {
         particles.push({
           x: f.x + (Math.random() - 0.5) * 50, y: GROUND_Y - 40,
           vx: (Math.random() - 0.5) * 1, vy: -2 - Math.random() * 2,
@@ -514,8 +580,8 @@ function spawnCastEffect(f, move) {
       break;
     case 'counter':
       // 몸 주위를 도는 보호막 링
-      for (let i = 0; i < 16; i++) {
-        const ang = (i / 16) * Math.PI * 2;
+      for (let i = 0; i < 20; i++) {
+        const ang = (i / 20) * Math.PI * 2;
         particles.push({
           x: f.x + Math.cos(ang) * 12, y: cy + Math.sin(ang) * 12,
           vx: Math.cos(ang) * 2.2, vy: Math.sin(ang) * 2.2,
@@ -524,7 +590,7 @@ function spawnCastEffect(f, move) {
       }
       // 보험사기: 경찰이 출동한 듯 머리 위에서 빨강/파랑 경광등 불빛이 번갈아 반짝임
       if (f.data.id === 'gura' && move.key === 'special3') {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 14; i++) {
           const side = i % 2 === 0 ? -1 : 1;
           particles.push({
             x: f.x + side * (14 + Math.random() * 10), y: cy - 130 - Math.random() * 10,
@@ -538,7 +604,7 @@ function spawnCastEffect(f, move) {
     case 'burst':
       if (move.ignoreFacing) {
         // 화면 양쪽 끝에서 몰려드는 여론(군중) 파티클
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 20; i++) {
           const fromLeft = i % 2 === 0;
           particles.push({
             x: fromLeft ? -10 : STAGE_W + 10, y: GROUND_Y - 40 - Math.random() * 160,
@@ -549,7 +615,7 @@ function spawnCastEffect(f, move) {
         // 정치쑈: 입에서 상대를 향해 침을 튀기며 열변을 토하는 연출
         if (f.data.id === 'gura' && move.key === 'special2') {
           const mouthY = cy - 95;
-          for (let i = 0; i < 14; i++) {
+          for (let i = 0; i < 18; i++) {
             particles.push({
               x: f.x + f.actionFacing * 24, y: mouthY + (Math.random() - 0.5) * 10,
               vx: f.actionFacing * (7 + Math.random() * 5), vy: (Math.random() - 0.5) * 3 - 1,
@@ -558,11 +624,11 @@ function spawnCastEffect(f, move) {
           }
         }
       } else {
-        spawnParticles(f.x, cy, color, 14, 'hit');
+        spawnParticles(f.x, cy, color, 18, 'hit');
       }
       break;
     default:
-      spawnParticles(f.x, cy, color, 10, 'hit');
+      spawnParticles(f.x, cy, color, 14, 'hit');
   }
 }
 
@@ -584,9 +650,13 @@ function update() {
   updateParticles();
   updateProps();
   updateFloatingTexts();
+  updateRings();
+  updateImpactLines();
 
   if (shake.time > 0) shake.time--;
   zoom += (1 - zoom) * 0.18;
+  if (flashTime > 0) flashTime--;
+  if (ultBannerTimer > 0) ultBannerTimer--;
 
   if (!matchOver) {
     p1.specialGauge = Math.min(100, p1.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
@@ -775,7 +845,25 @@ function updateFighter(f, opp) {
       }
       if (['special1', 'special2', 'special3', 'ultimate'].includes(f.state)) {
         spawnCastEffect(f, move);
-        if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, move.color || f.data.color);
+        const fxColor = move.color || f.data.color;
+        if (f.state === 'ultimate') {
+          // 궁극기는 킹오브파이터식 연출: 화면 정지+확대, 전체 플래시, 중앙 집중선, 큰 충격파 링
+          if (move.castText) {
+            ultBannerText = move.castText;
+            ultBannerColor = fxColor;
+            ultBannerTimer = 50;
+          }
+          triggerFlash(fxColor, 18);
+          spawnImpactLines(STAGE_W / 2, STAGE_H / 2, fxColor, 18);
+          spawnRing(f.x, GROUND_Y - 120, fxColor, 260, 36);
+          hitStop = Math.max(hitStop, 14);
+          zoom = 1.3;
+          shake.time = Math.max(shake.time, 14);
+          shake.mag = Math.max(shake.mag, 7);
+        } else {
+          if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, fxColor);
+          spawnRing(f.x, GROUND_Y - 120, fxColor, 100, 22);
+        }
       }
       if (['punch1', 'punch2', 'kick1', 'kick2'].includes(f.state)) {
         const big = f.state === 'punch2' || f.state === 'kick2';
@@ -1055,12 +1143,50 @@ function draw() {
   strikes.forEach(drawStrike);
   particles.forEach(drawParticle);
   props.forEach(drawProp);
+  rings.forEach(drawRing);
+  impactLines.forEach(drawImpactLine);
   floatingTexts.forEach(drawFloatingText);
 
   ctx.restore();
 
+  // 궁극기 지속 중인 쪽이 있으면 화면 가장자리에 테마색 비네트를 살짝 깔아
+  // "지금 궁극기 상태다"가 카메라 흔들림과 무관하게 항상 또렷이 보이게 한다
+  const ultActiveFighter = [p1, p2].find(f => f.auraTimer > 0 || f.transformTimer > 0);
+  if (ultActiveFighter) {
+    const vColor = (ultActiveFighter.auraMove && ultActiveFighter.auraMove.color) || '#2b6fd6';
+    drawVignette(vColor);
+  }
+
+  if (flashTime > 0) drawFlash();
+
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
+  else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor);
+}
+
+// 궁극기 지속 중 화면 가장자리를 감싸는 테마색 비네트
+function drawVignette(color) {
+  const pulse = 0.28 + Math.sin(performance.now() / 1000 * 4) * 0.08;
+  ctx.save();
+  const grad = ctx.createRadialGradient(
+    STAGE_W / 2, STAGE_H / 2, STAGE_H * 0.35,
+    STAGE_W / 2, STAGE_H / 2, STAGE_H * 0.75
+  );
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, color);
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+  ctx.restore();
+}
+
+// 궁극기 발동 등 결정적 순간에 화면 전체가 잠깐 번쩍이는 플래시
+function drawFlash() {
+  ctx.save();
+  ctx.globalAlpha = (flashTime / 18) * 0.55;
+  ctx.fillStyle = flashColor;
+  ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+  ctx.restore();
 }
 
 // 화면 중앙에 큼직하게 뜨는 배너(READY / GO! / K.O.)
