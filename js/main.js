@@ -1,4 +1,4 @@
-// ===== 친구 파이터 게임 엔진 =====
+// ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
 const ASSET_VERSION = 6;
@@ -8,7 +8,7 @@ const STAGE_H = 540;
 const GROUND_Y = 460;
 const GRAVITY = 0.85;
 const JUMP_V = -16;
-const MOVE_SPEED = 4.2;
+const MOVE_SPEED = 3.2;
 const FIGHTER_W = 160;
 const FIGHTER_H = 240;
 const MIN_GAP = 130;
@@ -113,6 +113,62 @@ document.querySelectorAll('#touchControls .tcBtn').forEach(btn => {
   btn.addEventListener('pointercancel', release);
   btn.addEventListener('pointerleave', release);
 });
+
+// 이동 가상 조이스틱 - 눌러서 끄는 방향으로 ArrowLeft/Right/Up/Down 키를 대신 채워준다
+(function setupJoystick() {
+  const base = document.getElementById('tcJoystick');
+  const knob = document.getElementById('tcJoystickKnob');
+  if (!base || !knob) return;
+
+  const MAX_DIST = 40;
+  const DEADZONE = 12;
+  let activeId = null;
+  let baseRect = null;
+
+  function setDir(dx, dy) {
+    keys['ArrowLeft'] = dx < -DEADZONE;
+    keys['ArrowRight'] = dx > DEADZONE;
+    keys['ArrowUp'] = dy < -DEADZONE;
+    keys['ArrowDown'] = dy > DEADZONE;
+  }
+
+  function resetDir() {
+    keys['ArrowLeft'] = false;
+    keys['ArrowRight'] = false;
+    keys['ArrowUp'] = false;
+    keys['ArrowDown'] = false;
+    knob.style.transform = 'translate(-50%, -50%)';
+  }
+
+  function moveKnob(clientX, clientY) {
+    const cx = baseRect.left + baseRect.width / 2;
+    const cy = baseRect.top + baseRect.height / 2;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > MAX_DIST) { dx = (dx / dist) * MAX_DIST; dy = (dy / dist) * MAX_DIST; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    setDir(dx, dy);
+  }
+
+  base.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    activeId = e.pointerId;
+    baseRect = base.getBoundingClientRect();
+    moveKnob(e.clientX, e.clientY);
+  });
+  window.addEventListener('pointermove', e => {
+    if (e.pointerId !== activeId) return;
+    moveKnob(e.clientX, e.clientY);
+  });
+  function endDrag(e) {
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    resetDir();
+  }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+})();
 
 // ----- Fighter 클래스 -----
 class Fighter {
@@ -312,11 +368,12 @@ function tryStartAction(f, key) {
 
 // 필살기 게이지는 빨리, 궁극기 게이지는 천천히 찬다
 // (예전 값은 라운드가 끝날 때까지 필살기 한 번 못 써보는 경우가 잦아 상향)
-const SPECIAL_GAUGE_RATE = 3.4;
-const ULT_GAUGE_RATE = 1.1;
-// 전투를 안 해도 라운드 안에 궁극기를 한 번은 써볼 수 있도록 매 프레임 조금씩 자동으로 차오름
-const PASSIVE_SPECIAL_GAUGE_PER_FRAME = 0.045;
-const PASSIVE_ULT_GAUGE_PER_FRAME = 0.03;
+// 필살기/궁극기가 너무 자주 터져서 전투 템포가 정신없다는 피드백을 반영해 살짝 낮춤
+// (그래도 라운드 안에 한 번은 쓸 수 있도록 최소 보장은 유지)
+const SPECIAL_GAUGE_RATE = 2.4;
+const ULT_GAUGE_RATE = 0.8;
+const PASSIVE_SPECIAL_GAUGE_PER_FRAME = 0.03;
+const PASSIVE_ULT_GAUGE_PER_FRAME = 0.02;
 function gainGauge(f, amount) {
   f.specialGauge = Math.min(100, f.specialGauge + amount * SPECIAL_GAUGE_RATE);
   f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE);

@@ -286,11 +286,31 @@ h1 {
   height: 132px;
 }
 
-.tcDpad .tcBtn { position: absolute; width: 44px; height: 44px; }
-.tcDpadUp { top: 0; left: 44px; }
-.tcDpadLeft { top: 44px; left: 0; }
-.tcDpadDown { top: 88px; left: 44px; }
-.tcDpadRight { top: 44px; left: 88px; }
+/* 다른 모바일 게임처럼 눌러서 끄는 방향으로 이동하는 가상 조이스틱 */
+.tcJoystick {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(20, 20, 30, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tcJoystickKnob {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 
 .tcGuardBtn {
   width: 58px;
