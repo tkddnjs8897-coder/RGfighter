@@ -223,7 +223,7 @@ h1 {
 
 .tcCluster {
   position: absolute;
-  bottom: 16px;
+  bottom: 10px;
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -231,7 +231,7 @@ h1 {
 }
 
 .tcCluster.tcLeft { left: 16px; }
-.tcCluster.tcRight { right: 16px; flex-direction: column; align-items: center; gap: 6px; }
+.tcCluster.tcRight { right: 16px; flex-direction: column; align-items: center; gap: 4px; }
 
 .tcBtn {
   pointer-events: auto;
@@ -270,11 +270,11 @@ h1 {
 
 /* 한글 기술명이 들어가는 버튼(공격/필살기) - 원형 대신 둥근 사각형 + 작은 글씨 */
 .tcBtn.tcLabel {
-  border-radius: 10px;
-  font-size: 10px;
+  border-radius: 8px;
+  font-size: 9px;
   font-weight: bold;
-  line-height: 1.15;
-  padding: 2px;
+  line-height: 1.1;
+  padding: 1px;
   text-align: center;
   white-space: normal;
   word-break: keep-all;
@@ -299,24 +299,34 @@ h1 {
   background: rgba(59, 214, 255, 0.3);
 }
 
-.tcSpecialRow { display: flex; gap: 6px; pointer-events: none; }
-.tcSpecialRow .tcBtn { width: 46px; height: 46px; font-size: 9px; background: rgba(224, 194, 90, 0.35); }
+.tcSpecialRow { display: flex; gap: 5px; pointer-events: none; }
+.tcSpecialRow .tcBtn { width: 38px; height: 38px; font-size: 8px; background: rgba(224, 194, 90, 0.35); }
 
 .tcUltBtn {
-  width: 96px;
-  height: 40px;
-  border-radius: 20px;
-  font-size: 12px;
+  width: 84px;
+  height: 34px;
+  border-radius: 17px;
+  font-size: 11px;
   background: rgba(255, 210, 59, 0.4);
   border-color: #ffd23b;
 }
 
-.tcAtkPad { position: relative; width: 170px; height: 170px; }
-.tcAtkPad .tcBtn { position: absolute; width: 58px; height: 58px; background: rgba(255, 91, 59, 0.35); }
-.tcAtkX { top: 0; left: 56px; }
-.tcAtkZ { top: 56px; left: 0; }
-.tcAtkV { top: 56px; left: 112px; }
-.tcAtkC { top: 112px; left: 56px; }
+/* 잽/스트레이트/로우킥/하이킥 - 카카오톡 인앱 브라우저처럼 세로 공간이 좁은 환경에서도
+   위쪽 필살기 버튼이 화면 밖으로 잘리지 않도록 축소 */
+.tcAtkPad { position: relative; width: 128px; height: 128px; }
+.tcAtkPad .tcBtn { position: absolute; width: 44px; height: 44px; background: rgba(255, 91, 59, 0.35); }
+.tcAtkX { top: 0; left: 42px; }
+.tcAtkZ { top: 42px; left: 0; }
+.tcAtkV { top: 42px; left: 84px; }
+.tcAtkC { top: 84px; left: 42px; }
+
+/* 터치 기기: 키보드 안내용 하단 바는 필요 없고, HUD도 살짝 줄여서
+   그만큼 캔버스(대전 화면)를 더 크게 보여준다 */
+@media (hover: none) and (pointer: coarse) {
+  #moveBar { display: none; }
+  #hud { padding: 4px 6px; }
+  .portrait { width: 40px; height: 40px; }
+}
 
 #rotateHint {
   display: none;

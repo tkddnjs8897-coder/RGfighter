@@ -19,8 +19,12 @@ const ctx = canvas.getContext('2d');
 
 // 창 크기에 맞춰 전체 화면을 축소/확대 (캔버스 해상도는 그대로 유지)
 const stageEl = document.getElementById('stage');
+const IS_TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
 function fitStage() {
-  const scale = Math.min(window.innerWidth / 1020, window.innerHeight / 780, 1);
+  // 터치 기기는 하단 키 안내 바를 숨기고 HUD도 줄여서 실제 필요한 세로 공간이 작으므로
+  // 그만큼 기준 높이를 낮춰 캔버스(대전 화면)가 더 크게 보이도록 한다
+  const heightRef = IS_TOUCH ? 610 : 780;
+  const scale = Math.min(window.innerWidth / 1020, window.innerHeight / heightRef, 1);
   stageEl.style.transform = `scale(${scale})`;
 }
 window.addEventListener('resize', fitStage);
