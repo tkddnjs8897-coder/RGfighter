@@ -1,7 +1,7 @@
 // ===== 친구 파이터 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 3;
+const ASSET_VERSION = 4;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -56,6 +56,7 @@ function loadImage(src) {
   imageCache[src] = img;
   return img;
 }
+const bgImage = loadImage('assets/characters/stage_bg.jpg');
 CHARACTERS.forEach(c => {
   loadImage(c.sprite);
   loadImage(c.portrait);
@@ -125,6 +126,8 @@ class Fighter {
     this.trail = [];
     this.lungeRemaining = 0;
     this.lungeSpeed = 0;
+    this.landSquash = 0;
+    this.visual = { x: 0, y: 0, rot: 0, sx: 1, sy: 1 };
   }
   get isFree() {
     return ['idle','walk','jump','crouch','block'].includes(this.state);
@@ -132,9 +135,15 @@ class Fighter {
   get isGrounded() { return this.height <= 0; }
 }
 
-let p1, p2, projectiles, particles, strikes, matchOver, matchTimer, lastTs, running, shake;
+let p1, p2, projectiles, particles, strikes, props, floatingTexts, matchOver, matchTimer, lastTs, running, shake;
 let hitStop = 0;
 let zoom = 1;
+let koBannerTimer = 0;
+let introPhase = null; // 'ready' -> 'go' -> null(전투 시작)
+let introTimer = 0;
+
+// 상태 전환(공격류) 목록 - 판정 로직과 렌더 스무딩 강도 판단에 공용으로 사용
+const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
 
 function startMatch(playerCharId) {
   const playerData = CHARACTERS.find(c => c.id === playerCharId);
@@ -145,10 +154,15 @@ function startMatch(playerCharId) {
   projectiles = [];
   particles = [];
   strikes = [];
+  props = [];
+  floatingTexts = [];
   matchOver = false;
   matchTimer = ROUND_TIME;
   shake = { time: 0, mag: 0 };
   zoom = 1;
+  koBannerTimer = 0;
+  introPhase = 'ready';
+  introTimer = 700;
 
   hud.p1Portrait.src = playerData.portrait;
   hud.p1Portrait.style.objectPosition = playerData.portraitCropTop ? 'center 10%' : 'center center';
@@ -197,6 +211,19 @@ function loop(ts) {
     return;
   }
 
+  if (introPhase) {
+    introTimer -= dt;
+    if (introTimer <= 0) {
+      if (introPhase === 'ready') { introPhase = 'go'; introTimer = 500; }
+      else introPhase = null;
+    }
+    draw();
+    requestAnimationFrame(loop);
+    return;
+  }
+
+  if (koBannerTimer > 0) koBannerTimer -= dt;
+
   if (!matchOver) {
     secondAccum += dt;
     if (secondAccum >= 1000) {
@@ -231,6 +258,12 @@ function tryStartAction(f, key) {
   }
   if (!move) return;
 
+  // 방향 무시(ignoreFacing) 기술은 판정만 전방위일 뿐, 연출은 실제로 상대를 바라보며 시전해야 자연스럽다
+  if (move.ignoreFacing) {
+    const opp = f === p1 ? p2 : p1;
+    f.facing = opp.x >= f.x ? 1 : -1;
+  }
+
   f.state = key;
   f.actionMove = move;
   f.phase = 'startup';
@@ -242,8 +275,9 @@ function tryStartAction(f, key) {
 }
 
 // 필살기 게이지는 빨리, 궁극기 게이지는 천천히 찬다
-const SPECIAL_GAUGE_RATE = 1;
-const ULT_GAUGE_RATE = 0.32;
+// (예전 값은 라운드가 끝날 때까지 필살기 한 번 못 써보는 경우가 잦아 상향)
+const SPECIAL_GAUGE_RATE = 2.6;
+const ULT_GAUGE_RATE = 0.65;
 function gainGauge(f, amount) {
   f.specialGauge = Math.min(100, f.specialGauge + amount * SPECIAL_GAUGE_RATE);
   f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE);
@@ -262,10 +296,14 @@ function applyHit(attacker, defender, move, opts) {
     shake.time = 10; shake.mag = 8;
     hitStop = 8; zoom = 1.12;
     gainGauge(defender, counterDmg * 1.2);
+    if (defender.data.id === 'gura' && defender.actionMove.key === 'special3') {
+      spawnParticles(defender.x - 20, GROUND_Y - 260, '#ff3b3b', 6, 'spark');
+      spawnParticles(defender.x + 20, GROUND_Y - 260, '#3b7bff', 6, 'spark');
+    }
     if (attacker.hp <= 0) {
       attacker.state = 'ko';
       attacker.stateTimer = 9999;
-      if (!matchOver) { matchOver = true; setTimeout(() => endMatch(defender), 900); }
+      triggerKO(defender);
     }
     return;
   }
@@ -283,6 +321,7 @@ function applyHit(attacker, defender, move, opts) {
     dmg = Math.max(1, Math.round(dmg * 0.15));
     defender.hp = Math.max(0, defender.hp - dmg);
     spawnParticles(defender.x + (-defender.facing * 40), GROUND_Y - 120, '#3bd6ff', 8, 'spark');
+    spawnFloatingText(defender.x, GROUND_Y - 220, '방어함', '#3bd6ff');
     shake.time = 6; shake.mag = 3;
     hitStop = 3;
     gainGauge(defender, dmg * 1.5);
@@ -315,10 +354,7 @@ function applyHit(attacker, defender, move, opts) {
   if (defender.hp <= 0) {
     defender.state = 'ko';
     defender.stateTimer = 9999;
-    if (!matchOver) {
-      matchOver = true;
-      setTimeout(() => endMatch(attacker), 900);
-    }
+    triggerKO(attacker);
   }
 }
 
@@ -336,7 +372,7 @@ function processStatusEffects(f, opp) {
       spawnParticles(f.x, GROUND_Y - 120, f.poison.color, 6, 'spark');
       if (f.hp <= 0 && f.state !== 'ko') {
         f.state = 'ko'; f.stateTimer = 9999;
-        if (!matchOver) { matchOver = true; setTimeout(() => endMatch(opp), 900); }
+        triggerKO(opp);
       }
     }
   }
@@ -353,7 +389,7 @@ function processStatusEffects(f, opp) {
         gainGauge(f, 2);
         if (opp.hp <= 0 && opp.state !== 'ko') {
           opp.state = 'ko'; opp.stateTimer = 9999;
-          if (!matchOver) { matchOver = true; setTimeout(() => endMatch(f), 900); }
+          triggerKO(f);
         }
       }
     }
@@ -365,6 +401,14 @@ function processStatusEffects(f, opp) {
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
     if (f.transformTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; }
   }
+}
+
+// HP가 0이 되는 순간 결과 화면으로 넘어가기 전 잠깐 "K.O." 배너를 띄운다
+function triggerKO(winner) {
+  if (matchOver) return;
+  matchOver = true;
+  koBannerTimer = 900;
+  setTimeout(() => endMatch(winner), 900);
 }
 
 function endMatch(winner) {
@@ -411,6 +455,16 @@ function spawnCastEffect(f, move) {
           life: 0, maxLife: 16 + Math.random() * 6, color, size: 3 + Math.random() * 3
         });
       }
+      // 법의 심판: 돌진과 함께 책이 회전하며 날아가는 연출
+      if (f.data.id === 'gura' && move.key === 'special1') {
+        props.push({
+          type: 'book',
+          x: f.x + f.actionFacing * 30, y: cy - 20,
+          vx: f.actionFacing * 14, vy: -4,
+          rot: 0, vrot: f.actionFacing * 0.9,
+          life: 0, maxLife: 24, color
+        });
+      }
       break;
     case 'projectile':
       spawnParticles(f.x + f.actionFacing * 40, cy, color, 10, 'hit');
@@ -434,6 +488,18 @@ function spawnCastEffect(f, move) {
           life: 0, maxLife: 22, color, size: 3
         });
       }
+      // 보험사기: 경찰이 출동한 듯 머리 위에서 빨강/파랑 경광등 불빛이 번갈아 반짝임
+      if (f.data.id === 'gura' && move.key === 'special3') {
+        for (let i = 0; i < 10; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          particles.push({
+            x: f.x + side * (14 + Math.random() * 10), y: cy - 130 - Math.random() * 10,
+            vx: side * 0.3, vy: -0.4,
+            life: 0, maxLife: 26 + Math.random() * 10,
+            color: side < 0 ? '#ff3b3b' : '#3b7bff', size: 5 + Math.random() * 3
+          });
+        }
+      }
       break;
     case 'burst':
       if (move.ignoreFacing) {
@@ -445,6 +511,17 @@ function spawnCastEffect(f, move) {
             vx: (fromLeft ? 1 : -1) * (6 + Math.random() * 4), vy: (Math.random() - 0.5) * 2,
             life: 0, maxLife: 40, color, size: 3 + Math.random() * 3
           });
+        }
+        // 정치쑈: 입에서 상대를 향해 침을 튀기며 열변을 토하는 연출
+        if (f.data.id === 'gura' && move.key === 'special2') {
+          const mouthY = cy - 95;
+          for (let i = 0; i < 14; i++) {
+            particles.push({
+              x: f.x + f.actionFacing * 24, y: mouthY + (Math.random() - 0.5) * 10,
+              vx: f.actionFacing * (7 + Math.random() * 5), vy: (Math.random() - 0.5) * 3 - 1,
+              life: 0, maxLife: 14 + Math.random() * 8, color: '#eef6d8', size: 1.5 + Math.random() * 2
+            });
+          }
         }
       } else {
         spawnParticles(f.x, cy, color, 14, 'hit');
@@ -471,6 +548,8 @@ function update() {
   updateProjectiles();
   updateStrikes();
   updateParticles();
+  updateProps();
+  updateFloatingTexts();
 
   if (shake.time > 0) shake.time--;
   zoom += (1 - zoom) * 0.18;
@@ -610,11 +689,13 @@ function updateFighter(f, opp) {
       if (f.state === 'jump') {
         f.state = 'idle';
         spawnParticles(f.x, GROUND_Y, '#8a8a9a', 6, 'spark');
+        f.landSquash = 10;
       }
     }
   }
 
   if (f.hitFlash > 0) f.hitFlash--;
+  if (f.landSquash > 0) f.landSquash--;
 
   // 히트스턴
   if (f.state === 'hitstun') {
@@ -624,8 +705,7 @@ function updateFighter(f, opp) {
   }
 
   // 액션(공격/필살기/궁극기) 진행
-  const actionStates = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
-  if (actionStates.includes(f.state)) {
+  if (ACTION_STATES.includes(f.state)) {
     const move = f.actionMove;
     f.stateTimer--;
 
@@ -654,12 +734,16 @@ function updateFighter(f, opp) {
       }
       if (['special1', 'special2', 'special3', 'ultimate'].includes(f.state)) {
         spawnCastEffect(f, move);
+        if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, move.color || f.data.color);
       }
       if (['punch1', 'punch2', 'kick1', 'kick2'].includes(f.state)) {
         const big = f.state === 'punch2' || f.state === 'kick2';
         const isKick = f.state.startsWith('kick');
-        f.lungeRemaining = big ? 7 : 4;
-        f.lungeSpeed = big ? 5 : 3;
+        // 메카 변신 중엔 사진 자체가 팔을 뻗는 포즈가 아니라 상대를 안 보고 치는 것처럼
+        // 보이기 쉬워서, 몸 전체가 상대 쪽으로 크게 파고들도록 돌진을 강하게 보정한다
+        const mechaBoost = f.transformTimer > 0 ? 1.7 : 1;
+        f.lungeRemaining = Math.round((big ? 7 : 4) * mechaBoost);
+        f.lungeSpeed = (big ? 5 : 3) * mechaBoost;
         strikes.push({
           x: f.x + f.actionFacing * (big ? 55 : 42),
           y: GROUND_Y - (isKick ? 95 : 130),
@@ -765,6 +849,69 @@ function updateParticles() {
   }
 }
 
+// 순전히 연출용 소품(예: 법의 심판 스킬의 던져지는 책) - 판정에는 관여하지 않는다
+function updateProps() {
+  for (let i = props.length - 1; i >= 0; i--) {
+    const p = props[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.35;
+    p.rot += p.vrot;
+    p.life++;
+    if (p.life > p.maxLife) props.splice(i, 1);
+  }
+}
+
+function drawProp(p) {
+  const t = Math.min(1, p.life / p.maxLife);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - t * t);
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rot);
+  if (p.type === 'book') {
+    ctx.fillStyle = p.color || '#c9a227';
+    ctx.fillRect(-13, -9, 26, 18);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillRect(-11, -7, 22, 14);
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// 대미지 텍스트 대신 짧은 상태 문구(예: "방어함")를 위로 떠오르며 표시
+function spawnFloatingText(x, y, text, color) {
+  floatingTexts.push({ x, y, text, color: color || '#ffffff', life: 0, maxLife: 42 });
+}
+function updateFloatingTexts() {
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.life++;
+    if (ft.life > ft.maxLife) floatingTexts.splice(i, 1);
+  }
+}
+function drawFloatingText(ft) {
+  const p = ft.life / ft.maxLife;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - p * p);
+  ctx.translate(ft.x, ft.y - p * 36);
+  ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+  ctx.strokeText(ft.text, 0, 0);
+  ctx.fillStyle = ft.color;
+  ctx.fillText(ft.text, 0, 0);
+  ctx.restore();
+}
+
+// 필살기 중 가장 싼 기술을 쓸 수 있으면(=하나라도 쓸 수 있으면) 게이지가 "찼다"고 본다
+function minSpecialCost(f) {
+  return Math.min(...f.data.moves.specials.map(s => s.gaugeCost));
+}
+
 function updateHUD() {
   hud.p1Hp.style.width = p1.hp + '%';
   hud.p2Hp.style.width = p2.hp + '%';
@@ -772,6 +919,11 @@ function updateHUD() {
   hud.p2SpecialGauge.style.width = p2.specialGauge + '%';
   hud.p1UltGauge.style.width = p1.ultGauge + '%';
   hud.p2UltGauge.style.width = p2.ultGauge + '%';
+
+  hud.p1SpecialGauge.classList.toggle('ready', p1.specialGauge >= minSpecialCost(p1));
+  hud.p2SpecialGauge.classList.toggle('ready', p2.specialGauge >= minSpecialCost(p2));
+  hud.p1UltGauge.classList.toggle('ready', p1.ultGauge >= 100);
+  hud.p2UltGauge.classList.toggle('ready', p2.ultGauge >= 100);
 }
 
 // ----- 렌더링 -----
@@ -785,6 +937,36 @@ function drawSprite(img, w, h) {
   ctx.drawImage(img, -w / 2, -h, w, h);
 }
 
+// 피격/블록 틴트를 캐릭터 실루엣에만 입히기 위한 오프스크린 버퍼.
+// 메인 캔버스에 바로 source-atop을 적용하면 이미 그려진 배경까지 대상이 되어
+// 실루엣이 아니라 네모 박스 전체가 칠해져버리므로, 여기서 캐릭터만 먼저 그려
+// 투명한 배경 위에서 틴트를 합성한 뒤 그 결과만 메인 캔버스에 얹는다.
+const tintCanvas = document.createElement('canvas');
+const tintCtx = tintCanvas.getContext('2d');
+function drawSpriteWithTint(img, w, h, tint, hitFlash) {
+  if (!img.complete || img.naturalWidth === 0) return;
+  if (!tint && !(hitFlash > 0)) { drawSprite(img, w, h); return; }
+
+  const cw = Math.max(1, Math.ceil(w));
+  const ch = Math.max(1, Math.ceil(h));
+  tintCanvas.width = cw;
+  tintCanvas.height = ch;
+  tintCtx.drawImage(img, 0, 0, cw, ch);
+  tintCtx.globalCompositeOperation = 'source-atop';
+  if (tint) {
+    tintCtx.fillStyle = tint;
+    tintCtx.fillRect(0, 0, cw, ch);
+  }
+  if (hitFlash > 0) {
+    tintCtx.globalAlpha = 0.5 * (hitFlash / 10);
+    tintCtx.fillStyle = '#ffffff';
+    tintCtx.fillRect(0, 0, cw, ch);
+    tintCtx.globalAlpha = 1;
+  }
+  tintCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(tintCanvas, -w / 2, -h, w, h);
+}
+
 function draw() {
   ctx.save();
   if (shake.time > 0) {
@@ -796,12 +978,18 @@ function draw() {
     ctx.translate(-STAGE_W / 2, -STAGE_H / 2);
   }
 
-  // 배경
-  const grad = ctx.createLinearGradient(0, 0, 0, STAGE_H);
-  grad.addColorStop(0, '#2a2550');
-  grad.addColorStop(1, '#171233');
-  ctx.fillStyle = grad;
-  ctx.fillRect(-20, -20, STAGE_W + 40, STAGE_H + 40);
+  // 배경 (실사진 스테이지, 로드 전이면 그라데이션으로 대체)
+  if (isUsable(bgImage)) {
+    ctx.drawImage(bgImage, -20, -20, STAGE_W + 40, STAGE_H + 40);
+    ctx.fillStyle = 'rgba(10,8,30,0.4)';
+    ctx.fillRect(-20, -20, STAGE_W + 40, STAGE_H + 40);
+  } else {
+    const grad = ctx.createLinearGradient(0, 0, 0, STAGE_H);
+    grad.addColorStop(0, '#2a2550');
+    grad.addColorStop(1, '#171233');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-20, -20, STAGE_W + 40, STAGE_H + 40);
+  }
 
   // 바닥
   ctx.fillStyle = '#0d0b1e';
@@ -818,7 +1006,26 @@ function draw() {
   projectiles.forEach(drawProjectile);
   strikes.forEach(drawStrike);
   particles.forEach(drawParticle);
+  props.forEach(drawProp);
+  floatingTexts.forEach(drawFloatingText);
 
+  ctx.restore();
+
+  if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
+  else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
+}
+
+// 화면 중앙에 큼직하게 뜨는 배너(READY / GO! / K.O.)
+function drawBanner(text, color) {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 64px sans-serif';
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.strokeText(text, STAGE_W / 2, STAGE_H / 2 - 40);
+  ctx.fillStyle = color;
+  ctx.fillText(text, STAGE_W / 2, STAGE_H / 2 - 40);
   ctx.restore();
 }
 
@@ -848,22 +1055,34 @@ function drawFighter(f) {
   const resolved = resolveFighterSprite(f);
   const usingPose = !!resolved;
   const img = usingPose ? resolved.img : f.img;
-  const flipDir = usingPose ? f.facing * (resolved.dir || 1) : f.facing;
+  const flipDir = usingPose ? f.facing * (resolved.dir || 1) : f.facing * (f.data.spriteDir || 1);
 
   const h = FIGHTER_H;
   const w = fighterWidth(img, h);
-  let offsetX = 0, rotate = 0, scaleX = 1, scaleY = 1;
+  let offsetX = 0, offsetY = 0, rotate = 0, scaleX = 1, scaleY = 1;
   let tint = null, glow = null;
 
   switch (f.state) {
     case 'idle':
+      // 숨쉬기: 살짝 위아래로 들썩이며 좌우로 흔들림
       offsetX = Math.sin(t * 2) * 2;
+      offsetY = -Math.abs(Math.sin(t * 2)) * 2;
+      scaleY = 1 + Math.sin(t * 2) * 0.012;
       break;
-    case 'walk':
+    case 'walk': {
+      // 걷는 보폭에 맞춰 통통 튀고, 진행 방향으로 살짝 기울어짐
+      const walkCycle = Math.abs(Math.sin(t * 10));
       offsetX = Math.sin(t * 10) * 4;
+      offsetY = -walkCycle * 6;
+      rotate = f.facing * Math.sin(t * 10) * 2.5 * Math.PI / 180;
+      scaleY = 1 - walkCycle * 0.035;
+      scaleX = 1 + walkCycle * 0.02;
       break;
+    }
     case 'jump':
-      scaleX = 1.05; scaleY = 1.08;
+      // 상승 중엔 위로 늘어나고, 하강 중엔 눌리는 느낌으로 탄성을 준다
+      if (f.vy < 0) { scaleY = 1.1 + Math.min(0.06, -f.vy * 0.004); scaleX = 0.95; }
+      else { scaleY = 1.04; scaleX = 0.98 + Math.min(0.05, f.vy * 0.003); }
       break;
     case 'crouch':
       scaleY = 0.72;
@@ -975,6 +1194,11 @@ function drawFighter(f) {
       const mvType = mv ? mv.type : null;
       glow = (mv && mv.color) || f.data.color;
 
+      // 보험사기: 경광등처럼 빨강/파랑이 빠르게 번갈아 번쩍이는 연출
+      if (f.data.id === 'gura' && mv && mv.key === 'special3') {
+        glow = Math.floor(t * 8) % 2 === 0 ? '#ff3b3b' : '#3b7bff';
+      }
+
       if (usingPose) {
         // 실제 자세 사진이 있으면 과장된 가짜 모션 대신 살짝의 돌진/펌프만 준다
         const moving = mvType === 'dash';
@@ -1027,9 +1251,26 @@ function drawFighter(f) {
       break;
   }
 
+  // 착지 스쿼시: 점프에서 착지한 직후 잠깐 눌렸다 튀어오르는 탄성
+  if (f.landSquash > 0) {
+    const lp = f.landSquash / 10;
+    scaleY *= 1 - 0.18 * lp;
+    scaleX *= 1 + 0.12 * lp;
+  }
+
   // 지속효과(오라/변신)는 상태와 무관하게 항상 표시
   if (f.auraTimer > 0) { glow = (f.auraMove && f.auraMove.color) || '#a8ff3b'; }
   if (f.transformTimer > 0) { glow = '#2b6fd6'; scaleX *= 1.12; scaleY *= 1.12; }
+
+  // 상태 전환이 뚝뚝 끊기지 않도록 목표값을 향해 매 프레임 부드럽게 보간한다.
+  // 액션(공격류)은 이미 startup/active/recovery 진행률로 곡선이 짜여 있으니 빠르게 따라가고,
+  // 걷기/점프/앉기 등 자유 상태 전환은 스프링처럼 천천히 따라가게 해서 애니메이션처럼 보이게 한다.
+  const smoothing = ACTION_STATES.includes(f.state) ? 0.6 : 0.25;
+  f.visual.x = lerp(f.visual.x, offsetX, smoothing);
+  f.visual.y = lerp(f.visual.y, offsetY, smoothing);
+  f.visual.rot = lerp(f.visual.rot, rotate, smoothing);
+  f.visual.sx = lerp(f.visual.sx, scaleX, smoothing);
+  f.visual.sy = lerp(f.visual.sy, scaleY, smoothing);
 
   // 잔상(모션 블러) - 강타/필살기/궁극기 판정 중에만 쌓임
   const trailWorthy = f.phase === 'active' &&
@@ -1038,14 +1279,14 @@ function drawFighter(f) {
     const g = f.trail[i];
     ctx.save();
     ctx.globalAlpha = 0.1 * (i + 1);
-    ctx.translate(g.feetX + g.offsetX, g.feetY);
-    ctx.rotate(g.rotate);
-    ctx.scale(g.facing * g.scaleX, g.scaleY);
+    ctx.translate(g.feetX + g.x, g.feetY + g.y);
+    ctx.rotate(g.rot);
+    ctx.scale(g.facing * g.sx, g.sy);
     drawSprite(img, w, h);
     ctx.restore();
   }
   if (trailWorthy) {
-    f.trail.push({ feetX, feetY, offsetX, rotate, scaleX, scaleY, facing: flipDir });
+    f.trail.push({ feetX, feetY, x: f.visual.x, y: f.visual.y, rot: f.visual.rot, sx: f.visual.sx, sy: f.visual.sy, facing: flipDir });
     if (f.trail.length > 4) f.trail.shift();
   } else if (f.trail.length) {
     // 다른 동작으로 넘어가면 잔상이 새 동작까지 번지지 않도록 즉시 비운다
@@ -1053,33 +1294,18 @@ function drawFighter(f) {
   }
 
   ctx.save();
-  ctx.translate(feetX + offsetX, feetY);
+  ctx.translate(feetX + f.visual.x, feetY + f.visual.y);
   if (f.state === 'ko') ctx.translate(0, -h * 0.15);
-  ctx.rotate(rotate);
-  ctx.scale(flipDir * scaleX, scaleY);
+  ctx.rotate(f.visual.rot);
+  ctx.scale(flipDir * f.visual.sx, f.visual.sy);
 
   if (glow) {
     ctx.shadowColor = glow;
     ctx.shadowBlur = 30;
   }
 
-  drawSprite(img, w, h);
+  drawSpriteWithTint(img, w, h, tint, f.hitFlash);
 
-  // source-atop: 투명 배경은 건드리지 않고 실루엣 위에만 틴트를 입힌다
-  if (tint || f.hitFlash > 0) {
-    ctx.globalCompositeOperation = 'source-atop';
-    if (tint) {
-      ctx.fillStyle = tint;
-      ctx.fillRect(-w / 2, -h, w, h);
-    }
-    if (f.hitFlash > 0) {
-      ctx.globalAlpha = 0.5 * (f.hitFlash / 10);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-w / 2, -h, w, h);
-      ctx.globalAlpha = 1;
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
   ctx.restore();
 
   // 황산 오라 지속 링

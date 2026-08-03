@@ -168,6 +168,18 @@ h1 {
   background: linear-gradient(#ffd23b, #b8860b);
 }
 
+@keyframes gaugeReady {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50% { filter: brightness(1.8) saturate(1.4); }
+}
+
+.gaugeBar.ready {
+  animation: gaugeReady 0.8s ease-in-out infinite;
+}
+
+.gaugeBar.special.ready { box-shadow: 0 0 10px 4px rgba(59, 214, 255, 0.9); }
+.gaugeBar.ult.ready { box-shadow: 0 0 10px 4px rgba(255, 210, 59, 0.9); }
+
 .timer {
   width: 60px;
   text-align: center;
