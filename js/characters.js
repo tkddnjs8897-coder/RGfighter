@@ -27,10 +27,10 @@ const CHARACTERS = [
     portraitCropTop: true,
     // 실제 동작 사진 (dir: 이 사진 속 타격/동작이 향하는 방향, 1=오른쪽 -1=왼쪽)
     poseSprites: {
-      // 옆모습 사진이라 원본이 왼쪽을 보고 걷는 중이라 dir: -1
+      // 옆모습 사진이라 원본이 오른쪽을 보고 걷는 중이라 dir: 1
       // 정면 사진보다 옆모습이 더 자연스러워서 걷기(walk)에도 동일 사진 사용
-      idle: { src: 'assets/characters/yang2_idle_full.png', dir: -1 },
-      walk: { src: 'assets/characters/yang2_idle_full.png', dir: -1 },
+      idle: { src: 'assets/characters/yang2_idle_full.png', dir: 1 },
+      walk: { src: 'assets/characters/yang2_idle_full.png', dir: 1 },
       punch1: { src: 'assets/characters/yang2_punch1_full.png', dir: 1 },
       punch2: { src: 'assets/characters/yang2_punch2.png', dir: 1 },
       kick1: { src: 'assets/characters/yang2_kick1.png', dir: -1 },
