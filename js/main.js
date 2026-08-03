@@ -218,6 +218,7 @@ class Fighter {
     this.height = 0; // 지면 위 높이 (점프)
     this.vy = 0;
     this.facing = isCPU ? -1 : 1;
+    this.walkDir = this.facing; // 걷기 자세는 상대 추적이 아니라 실제 이동 키 방향으로 좌우반전
     this.state = 'idle';
     this.phase = null;
     this.stateTimer = 0;
@@ -786,10 +787,10 @@ function handleFighterInput(f, opp, isCPU) {
       if (f.isGrounded) f.state = 'crouch';
     } else if (keys['ArrowLeft']) {
       f.x -= MOVE_SPEED * f.speedMult;
-      if (f.isGrounded) f.state = 'walk';
+      if (f.isGrounded) { f.state = 'walk'; f.walkDir = -1; }
     } else if (keys['ArrowRight']) {
       f.x += MOVE_SPEED * f.speedMult;
-      if (f.isGrounded) f.state = 'walk';
+      if (f.isGrounded) { f.state = 'walk'; f.walkDir = 1; }
     } else {
       if (f.isGrounded && (f.state === 'walk' || f.state === 'crouch' || f.state === 'block')) f.state = 'idle';
     }
@@ -840,11 +841,13 @@ function runAI(f, opp) {
 
   switch (f.aiIntent) {
     case 'approach':
-      f.x += (opp.x > f.x ? 1 : -1) * MOVE_SPEED * f.speedMult;
+      f.walkDir = opp.x > f.x ? 1 : -1;
+      f.x += f.walkDir * MOVE_SPEED * f.speedMult;
       f.state = 'walk';
       break;
     case 'retreat':
-      f.x += (opp.x > f.x ? -1 : 1) * MOVE_SPEED * f.speedMult;
+      f.walkDir = opp.x > f.x ? -1 : 1;
+      f.x += f.walkDir * MOVE_SPEED * f.speedMult;
       f.state = 'walk';
       break;
     case 'jump':
@@ -859,7 +862,8 @@ function runAI(f, opp) {
         const moves = ['punch1','punch1','punch2','kick1','kick2'];
         tryStartAction(f, moves[Math.floor(Math.random() * moves.length)]);
       } else {
-        f.x += (opp.x > f.x ? 1 : -1) * MOVE_SPEED * f.speedMult;
+        f.walkDir = opp.x > f.x ? 1 : -1;
+        f.x += f.walkDir * MOVE_SPEED * f.speedMult;
         f.state = 'walk';
       }
       break;
@@ -867,7 +871,7 @@ function runAI(f, opp) {
       const specials = f.data.moves.specials;
       const options = ['special1', 'special2', 'special3'].filter((k, i) => f.specialGauge >= specials[i].gaugeCost);
       if (options.length) tryStartAction(f, options[Math.floor(Math.random() * options.length)]);
-      else { f.x += (opp.x > f.x ? 1 : -1) * MOVE_SPEED * f.speedMult; f.state = 'walk'; }
+      else { f.walkDir = opp.x > f.x ? 1 : -1; f.x += f.walkDir * MOVE_SPEED * f.speedMult; f.state = 'walk'; }
       break;
     }
     case 'ultimate':
@@ -1326,7 +1330,9 @@ function drawFighter(f) {
   const resolved = resolveFighterSprite(f);
   const usingPose = !!resolved;
   const img = usingPose ? resolved.img : f.img;
-  const flipDir = usingPose ? f.facing * (resolved.dir || 1) : f.facing * (f.data.spriteDir || 1);
+  // 걷는 중에는 상대 추적용 facing이 아니라 실제 이동 키 방향(walkDir)으로 좌우반전
+  const renderFacing = f.state === 'walk' ? f.walkDir : f.facing;
+  const flipDir = usingPose ? renderFacing * (resolved.dir || 1) : renderFacing * (f.data.spriteDir || 1);
 
   const h = FIGHTER_H;
   const w = fighterWidth(img, h);
@@ -1345,7 +1351,7 @@ function drawFighter(f) {
       const walkCycle = Math.abs(Math.sin(t * 10));
       offsetX = Math.sin(t * 10) * 4;
       offsetY = -walkCycle * 6;
-      rotate = f.facing * Math.sin(t * 10) * 2.5 * Math.PI / 180;
+      rotate = renderFacing * Math.sin(t * 10) * 2.5 * Math.PI / 180;
       scaleY = 1 - walkCycle * 0.035;
       scaleX = 1 + walkCycle * 0.02;
       break;
