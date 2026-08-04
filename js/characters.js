@@ -173,9 +173,9 @@ const CHARACTERS = [
     name: '옥킴',
     color: '#22c55e',
     sprite: 'assets/characters/ok_cut.png',
-    // 전투자세 원본 사진이 왼쪽을 보고 있어서, 전용 포즈가 없는 idle/walk 등에서
-    // 기본 방향(오른쪽) 가정과 반대이므로 -1로 뒤집어 상대를 바라보게 보정
-    spriteDir: -1,
+    // 전투자세 원본 사진이 이미 오른쪽(기본 방향)을 보고 있으므로 spriteDir 보정 불필요
+    // (기존에 -1로 잘못 넣어놨던 게 pose 사진들과 반대 방향이라 idle<->공격 전환마다
+    // 좌우가 뒤집혀 보이던 원인이었음)
     portrait: 'assets/characters/옥킴.jpg',
     portraitCropTop: false,
     poseSprites: {
