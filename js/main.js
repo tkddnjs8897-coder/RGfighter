@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 8;
+const ASSET_VERSION = 9;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -269,6 +269,10 @@ class Fighter {
     this.lungeSpeed = 0;
     this.landSquash = 0;
     this.visual = { x: 0, y: 0, rot: 0, sx: 1, sy: 1 };
+    // 걷기<->대기 전환 등에서 바라보는 방향(facing)의 기준이 바뀌며 좌우가 뚝 끊겨 뒤집히는 것을
+    // 막기 위한 값 - 실제 좌우반전 배율을 이 값으로 부드럽게 수렴시켜서 순간적으로 뒤집히지 않고
+    // 살짝 얇아졌다가 돌아서는 것처럼 자연스럽게 전환되게 한다
+    this.visualFlip = this.facing;
     // 필살기별 쿨타임(프레임). move.cooldown 이 있는 기술만 게이지와 별개로 관리된다
     this.cooldowns = {};
   }
@@ -1704,6 +1708,10 @@ function drawFighter(f) {
   f.visual.sx = lerp(f.visual.sx, scaleX, smoothing);
   f.visual.sy = lerp(f.visual.sy, scaleY, smoothing);
 
+  // 좌우반전(flipDir)이 바뀌는 순간 뚝 끊겨 뒤집히지 않도록 부드럽게 수렴시킨다
+  // (걷다가 멈추면 이동 방향 기준->상대 추적 기준으로 순식간에 바뀌어 보이던 문제)
+  f.visualFlip = lerp(f.visualFlip, flipDir, 0.3);
+
   // 잔상(모션 블러) - 강타/필살기/궁극기 판정 중에만 쌓임
   const trailWorthy = f.phase === 'active' &&
     ['punch2', 'kick2', 'special1', 'special2', 'special3', 'ultimate'].includes(f.state);
@@ -1729,7 +1737,7 @@ function drawFighter(f) {
   ctx.translate(feetX + f.visual.x, feetY + f.visual.y);
   if (f.state === 'ko') ctx.translate(0, -h * 0.15);
   ctx.rotate(f.visual.rot);
-  ctx.scale(flipDir * f.visual.sx, f.visual.sy);
+  ctx.scale(f.visualFlip * f.visual.sx, f.visual.sy);
 
   if (glow) {
     ctx.shadowColor = glow;
