@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 7;
+const ASSET_VERSION = 8;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -71,7 +71,8 @@ function loadImage(src) {
 // 전투 배경(맵) 목록 - 캐릭터 선택 다음에 고르게 된다
 const STAGES = [
   { id: 'yangman', name: '양만장', bg: 'assets/characters/stage_bg.jpg' },
-  { id: 'rsg', name: '알슥', bg: 'assets/characters/stage_bg2.jpg' }
+  { id: 'rsg', name: '알슥', bg: 'assets/characters/stage_bg2.jpg' },
+  { id: 'oldtown', name: '올드타운로드', bg: 'assets/characters/올타.png' }
 ];
 STAGES.forEach(s => { s.img = loadImage(s.bg); });
 let currentStage = STAGES[0];
@@ -268,6 +269,8 @@ class Fighter {
     this.lungeSpeed = 0;
     this.landSquash = 0;
     this.visual = { x: 0, y: 0, rot: 0, sx: 1, sy: 1 };
+    // 필살기별 쿨타임(프레임). move.cooldown 이 있는 기술만 게이지와 별개로 관리된다
+    this.cooldowns = {};
   }
   get isFree() {
     return ['idle','walk','jump','crouch','block'].includes(this.state);
@@ -407,6 +410,7 @@ function tryStartAction(f, key) {
     const idx = Number(key.slice(-1)) - 1;
     move = moves.specials[idx];
     if (f.specialGauge < move.gaugeCost) return;
+    if (move.cooldown && f.cooldowns[key] > 0) return;
   } else if (key === 'ultimate') {
     if (f.ultGauge < 100) return;
     move = moves.ultimate;
@@ -426,8 +430,17 @@ function tryStartAction(f, key) {
   f.hasHitThisActive = false;
   f.hasCountered = false;
   f.actionFacing = f.facing;
-  if (key.startsWith('special')) f.specialGauge = Math.max(0, f.specialGauge - move.gaugeCost);
+  if (key.startsWith('special')) {
+    f.specialGauge = Math.max(0, f.specialGauge - move.gaugeCost);
+    if (move.cooldown) f.cooldowns[key] = move.cooldown;
+  }
   else if (key === 'ultimate') f.ultGauge = 0;
+}
+
+function tickCooldowns(f) {
+  for (const k in f.cooldowns) {
+    if (f.cooldowns[k] > 0) f.cooldowns[k]--;
+  }
 }
 
 // 필살기 게이지는 빨리, 궁극기 게이지는 천천히 찬다
@@ -488,13 +501,19 @@ function applyHit(attacker, defender, move, opts) {
     hitStop = 3;
     gainGauge(defender, dmg * 1.5);
   } else {
+    // 하이퍼 아머: 변신 궁극기 중 이미 공격 판정에 들어가 있으면 맞아도 경직/넉백 없이 공격을 이어간다
+    const hasArmor = defender.transformTimer > 0 && defender.data.moves.ultimate.hyperArmor &&
+      ACTION_STATES.includes(defender.state);
+
     defender.hp = Math.max(0, defender.hp - dmg);
     defender.hitFlash = 10;
-    defender.state = 'hitstun';
-    defender.stateTimer = move.name === '궁극기' || move.type === 'ultimate' || attacker.state === 'ultimate' ? 34 : 18;
-    const push = attacker.x < defender.x ? 1 : -1;
-    const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
-    defender.x += push * knockback;
+    if (!hasArmor) {
+      defender.state = 'hitstun';
+      defender.stateTimer = move.name === '궁극기' || move.type === 'ultimate' || attacker.state === 'ultimate' ? 34 : 18;
+      const push = attacker.x < defender.x ? 1 : -1;
+      const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
+      defender.x += push * knockback;
+    }
     spawnParticles(defender.x, GROUND_Y - 120, move.color || '#ff5b3b', 14, 'hit');
     shake.time = 10; shake.mag = opts.big ? 12 : 6;
     hitStop = opts.big ? 12 : 6;
@@ -615,15 +634,15 @@ function spawnParticles(x, y, color, count, type) {
 
 // 피가 튀는 듯한 붉은 피격 이펙트 (중력으로 자연스럽게 떨어져서 핏방울처럼 보인다)
 function spawnBloodEffect(x, y) {
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 38; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const speed = 2 + Math.random() * 7;
+    const speed = 3 + Math.random() * 10;
     particles.push({
       x, y,
-      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 3,
-      life: 0, maxLife: 30 + Math.random() * 25,
+      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 4,
+      life: 0, maxLife: 34 + Math.random() * 28,
       color: Math.random() < 0.5 ? '#e60023' : '#8f0016',
-      size: 3 + Math.random() * 6
+      size: 5 + Math.random() * 10
     });
   }
 }
@@ -787,6 +806,8 @@ function update() {
 
   updateFighter(p1, p2);
   updateFighter(p2, p1);
+  tickCooldowns(p1);
+  tickCooldowns(p2);
 
   processStatusEffects(p1, p2);
   processStatusEffects(p2, p1);
@@ -881,16 +902,23 @@ function runAI(f, opp) {
       return;
     }
 
+    // 항상 전진/공격만 하면 단조로워 보이므로 모든 거리 구간에 후퇴(퇴각/견제)를 섞는다
     if (dist > 220) {
-      f.aiIntent = Math.random() < 0.15 ? 'jump' : 'approach';
+      const r = Math.random();
+      if (r < 0.12) f.aiIntent = 'jump';
+      else if (r < 0.24) f.aiIntent = 'retreat';
+      else f.aiIntent = 'approach';
     } else if (dist > 150) {
-      f.aiIntent = Math.random() < 0.35 ? 'special' : 'approach';
+      const r = Math.random();
+      if (r < 0.3) f.aiIntent = 'special';
+      else if (r < 0.48) f.aiIntent = 'retreat';
+      else f.aiIntent = 'approach';
     } else {
       const r = Math.random();
-      if (f.ultGauge >= 100 && r < 0.25) f.aiIntent = 'ultimate';
-      else if (r < 0.55) f.aiIntent = 'attack';
-      else if (r < 0.75) f.aiIntent = 'special';
-      else if (r < 0.85) f.aiIntent = 'block';
+      if (f.ultGauge >= 100 && r < 0.22) f.aiIntent = 'ultimate';
+      else if (r < 0.48) f.aiIntent = 'attack';
+      else if (r < 0.65) f.aiIntent = 'special';
+      else if (r < 0.78) f.aiIntent = 'block';
       else f.aiIntent = 'retreat';
     }
   }
@@ -1068,6 +1096,17 @@ function updateFighter(f, opp) {
         f.effectApplied = true;
         f.hp = Math.min(f.data.hp, f.hp + move.healAmount);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#ffd166', 12, 'hit');
+        // 회복 즉시 그로기로 들어간다 (recovery까지 기다리면 그 사이에 피격당해 hitstun으로
+        // 전환되면서 그로기 페널티 자체가 통째로 스킵되는 허점이 있었음 - 회복한 그 순간
+        // 바로 무방비 상태로 만들어 절대 안 씹히게 한다)
+        if (move.groggyDuration) {
+          f.state = 'groggy';
+          f.phase = null;
+          f.actionMove = null;
+          f.stateTimer = move.groggyDuration;
+          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 260, move.groggyText, move.groggyTextColor || '#ff3b6b');
+          return;
+        }
       } else if (move.type === 'aura' && !f.effectApplied) {
         f.effectApplied = true;
         f.auraTimer = move.duration;
@@ -1125,10 +1164,16 @@ function updateFighter(f, opp) {
   }
 }
 
+function isPiercing(f) {
+  return !!(f.actionMove && f.actionMove.pierce && f.phase === 'active');
+}
+
 function resolvePositions(f1, f2) {
   [f1, f2].forEach(f => {
     f.x = Math.max(70, Math.min(STAGE_W - 70, f.x));
   });
+  // 관통(pierce) 돌진 중에는 최소 간격을 무시해 상대를 뚫고 지나갈 수 있게 한다
+  if (isPiercing(f1) || isPiercing(f2)) return;
   if (Math.abs(f1.x - f2.x) < MIN_GAP) {
     const mid = (f1.x + f2.x) / 2;
     const dir = f1.x < f2.x ? -1 : 1;
@@ -1146,7 +1191,8 @@ function updateProjectiles() {
     const target = p.owner === p1 ? p2 : p1;
     const dist = Math.abs(target.x - p.x);
     let hit = false;
-    if (target.state !== 'ko' && dist < 46) {
+    const hitRadius = p.shape === 'box' ? 56 : 46;
+    if (target.state !== 'ko' && dist < hitRadius) {
       applyHit(p.owner, target, p.move, { projectile: true });
       hit = true;
     }
@@ -1251,9 +1297,11 @@ function updateHUD() {
 
   // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
   const p1Specials = p1.data.moves.specials;
-  tcS1El.classList.toggle('ready', p1.specialGauge >= p1Specials[0].gaugeCost);
-  tcS2El.classList.toggle('ready', p1.specialGauge >= p1Specials[1].gaugeCost);
-  tcS3El.classList.toggle('ready', p1.specialGauge >= p1Specials[2].gaugeCost);
+  const specialReady = (i) => p1.specialGauge >= p1Specials[i].gaugeCost &&
+    !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0);
+  tcS1El.classList.toggle('ready', specialReady(0));
+  tcS2El.classList.toggle('ready', specialReady(1));
+  tcS3El.classList.toggle('ready', specialReady(2));
   tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
 }
 
@@ -1736,12 +1784,12 @@ function drawProjectile(p) {
     ctx.translate(p.x, p.y);
     ctx.rotate(p.spin || 0);
     ctx.shadowColor = p.color || '#000';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 18;
     ctx.fillStyle = '#1c1c1c';
-    roundRectPath(-19, -12, 38, 24, 6);
+    roundRectPath(-30, -19, 60, 38, 9);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    roundRectPath(-16, -9, 32, 6, 3);
+    roundRectPath(-25, -14, 50, 9, 4);
     ctx.fill();
     ctx.restore();
     return;

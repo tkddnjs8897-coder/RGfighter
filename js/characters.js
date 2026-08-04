@@ -173,6 +173,9 @@ const CHARACTERS = [
     name: '옥킴',
     color: '#22c55e',
     sprite: 'assets/characters/ok_cut.png',
+    // 전투자세 원본 사진이 왼쪽을 보고 있어서, 전용 포즈가 없는 idle/walk 등에서
+    // 기본 방향(오른쪽) 가정과 반대이므로 -1로 뒤집어 상대를 바라보게 보정
+    spriteDir: -1,
     portrait: 'assets/characters/옥킴.jpg',
     portraitCropTop: false,
     poseSprites: {
@@ -195,7 +198,9 @@ const CHARACTERS = [
       idle: { src: 'assets/characters/ok_ult_idle.png', dir: -1 },
       punch1: { src: 'assets/characters/ok_ult_punch1.png', dir: 1 },
       punch2: { src: 'assets/characters/ok_ult_punch2.png', dir: 1 },
-      kick1: { src: 'assets/characters/ok_ult_kick1.png', dir: -1 },
+      // 로우킥 전용 사진이 idle과 동일해 정지된 것처럼 보였던 문제 - 베기(punch2) 사진을 재사용해
+      // 최소한 칼을 휘두르는 동작으로는 보이게 한다
+      kick1: { src: 'assets/characters/ok_ult_punch2.png', dir: 1 },
       kick2: { src: 'assets/characters/ok_ult_kick2.png', dir: -1 },
       block: { src: 'assets/characters/ok_ult_block.png', dir: 1 }
     },
@@ -218,21 +223,27 @@ const CHARACTERS = [
           healAmount: 999, damage: 0,
           startup: 20, active: 10, recovery: 14,
           gaugeCost: 50, color: '#ffb703',
-          groggyDuration: 180, groggyText: '혈당스파이크'
+          groggyDuration: 180, groggyText: '혈당스파이크',
+          // 전체 회복이 너무 자주 나오지 않도록 게이지와 별개로 15초 쿨타임을 둔다
+          cooldown: 900
         },
         {
           key: 'special3', name: '옥북이 변신 돌진', castText: '갸아아악! 구와악!', type: 'dash',
           damage: 24, range: 150,
           startup: 12, active: 9, recovery: 16,
           gaugeCost: 38, color: '#3b5d3b',
-          dashSpeed: 11, dashFrames: 9, returnToStart: true, unblockable: true
+          dashSpeed: 11, dashFrames: 9, returnToStart: true, unblockable: true,
+          // 돌진 중 상대방과 겹쳐도 밀어내지 않고 그대로 뚫고 지나간다
+          pierce: true
         }
       ],
       ultimate: {
         name: '일본-좆킴', castText: '일본-좆킴', type: 'transform',
         duration: 480, dmgMult: 2.2, speedMult: 1.15,
         startup: 20, active: 10, recovery: 16,
-        color: '#ff2b2b', bloodOnHit: true
+        color: '#ff2b2b', bloodOnHit: true,
+        // 변신 중 공격 판정에 들어가 있을 때 맞아도 경직/넉백 없이 공격을 계속 이어간다
+        hyperArmor: true
       }
     }
   }
