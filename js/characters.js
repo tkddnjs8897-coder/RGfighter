@@ -167,5 +167,73 @@ const CHARACTERS = [
         color: '#2b6fd6'
       }
     }
+  },
+  {
+    id: 'ok',
+    name: '옥킴',
+    color: '#22c55e',
+    sprite: 'assets/characters/ok_cut.png',
+    portrait: 'assets/characters/옥킴.jpg',
+    portraitCropTop: false,
+    poseSprites: {
+      punch1: { src: 'assets/characters/ok2_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/ok2_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/ok2_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/ok2_kick2.png', dir: 1 },
+      block: { src: 'assets/characters/ok2_block.png', dir: 1 },
+      crouch: { src: 'assets/characters/ok2_crouch.png', dir: 1 },
+      jump: { src: 'assets/characters/ok2_jump.png', dir: 1 },
+      special1: { src: 'assets/characters/ok2_special1.png', dir: 1 },
+      special2: { src: 'assets/characters/ok2_special2.png', dir: 1 },
+      special3: { src: 'assets/characters/ok2_special3.png', dir: 1 },
+      // 피자먹기(special2) 부작용으로 빠지는 무방비 상태 전용 자세. state 이름만 맞으면
+      // resolveFighterSprite 의 범용 조회로 자동으로 쓰인다.
+      groggy: { src: 'assets/characters/ok_groggy.png', dir: 1 }
+    },
+    // 궁극기(일본-좆킴) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태는 idle로 대체.
+    ultimateForm: {
+      idle: { src: 'assets/characters/ok_ult_idle.png', dir: -1 },
+      punch1: { src: 'assets/characters/ok_ult_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/ok_ult_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/ok_ult_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/ok_ult_kick2.png', dir: -1 },
+      block: { src: 'assets/characters/ok_ult_block.png', dir: 1 }
+    },
+    hp: 115,
+    moves: {
+      punch1: { name: '잽', damage: 3, range: 150, startup: 5, active: 4, recovery: 8 },
+      punch2: { name: '스트레이트', damage: 6, range: 190, startup: 9, active: 5, recovery: 13 },
+      kick1: { name: '로우킥', damage: 4, range: 160, startup: 7, active: 5, recovery: 10, guardType: 'low' },
+      kick2: { name: '하이킥', damage: 7, range: 220, startup: 13, active: 6, recovery: 17, guardType: 'high' },
+      specials: [
+        {
+          key: 'special1', name: '샤드탑박스 던지기', castText: '샤드탑박스!', type: 'projectile',
+          damage: 16, range: 999,
+          startup: 14, active: 26, recovery: 20,
+          gaugeCost: 67, color: '#2a2a2a',
+          projectileShape: 'box', knockback: 46
+        },
+        {
+          key: 'special2', name: '피자 먹기', castText: '피자먹기', type: 'heal',
+          healAmount: 999, damage: 0,
+          startup: 20, active: 10, recovery: 14,
+          gaugeCost: 50, color: '#ffb703',
+          groggyDuration: 180, groggyText: '혈당스파이크'
+        },
+        {
+          key: 'special3', name: '옥북이 변신 돌진', castText: '갸아아악! 구와악!', type: 'dash',
+          damage: 24, range: 150,
+          startup: 12, active: 9, recovery: 16,
+          gaugeCost: 38, color: '#3b5d3b',
+          dashSpeed: 11, dashFrames: 9, returnToStart: true, unblockable: true
+        }
+      ],
+      ultimate: {
+        name: '일본-좆킴', castText: '일본-좆킴', type: 'transform',
+        duration: 480, dmgMult: 2.2, speedMult: 1.15,
+        startup: 20, active: 10, recovery: 16,
+        color: '#ff2b2b', bloodOnHit: true
+      }
+    }
   }
 ];

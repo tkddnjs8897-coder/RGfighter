@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 6;
+const ASSET_VERSION = 7;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -111,7 +111,6 @@ CHARACTERS.forEach(c => {
 
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
 const COMING_SOON_CHARACTERS = [
-  { name: '옥킴', portrait: 'assets/characters/okkim_portrait.jpg' },
   { name: '골절기', portrait: 'assets/characters/hyungjun_portrait.jpg' }
 ];
 COMING_SOON_CHARACTERS.forEach(c => {
@@ -290,7 +289,8 @@ const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','
 
 function startMatch(playerCharId) {
   const playerData = CHARACTERS.find(c => c.id === playerCharId);
-  const cpuData = CHARACTERS.find(c => c.id !== playerCharId);
+  const remainingChars = CHARACTERS.filter(c => c.id !== playerCharId);
+  const cpuData = remainingChars[Math.floor(Math.random() * remainingChars.length)];
 
   p1 = new Fighter(playerData, 260, false);
   p2 = new Fighter(cpuData, 700, true);
@@ -476,7 +476,7 @@ function applyHit(attacker, defender, move, opts) {
     guardType === 'low' ? defender.state === 'crouch' :
     guardType === 'high' ? defender.state === 'block' :
     (defender.state === 'block' || defender.state === 'crouch');
-  const blocking = defender.guarding && facingCorrect && guardStanceOk;
+  const blocking = !move.unblockable && defender.guarding && facingCorrect && guardStanceOk;
 
   let dmg = Math.round(move.damage * (attacker.dmgMult || 1));
   if (blocking) {
@@ -493,12 +493,22 @@ function applyHit(attacker, defender, move, opts) {
     defender.state = 'hitstun';
     defender.stateTimer = move.name === '궁극기' || move.type === 'ultimate' || attacker.state === 'ultimate' ? 34 : 18;
     const push = attacker.x < defender.x ? 1 : -1;
-    defender.x += push * (opts.projectile ? 14 : 22);
+    const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
+    defender.x += push * knockback;
     spawnParticles(defender.x, GROUND_Y - 120, move.color || '#ff5b3b', 14, 'hit');
     shake.time = 10; shake.mag = opts.big ? 12 : 6;
     hitStop = opts.big ? 12 : 6;
     zoom = opts.big ? 1.16 : 1.06;
     gainGauge(defender, dmg);
+
+    // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
+    if (attacker.transformTimer > 0 && attacker.data.moves.ultimate.bloodOnHit) {
+      spawnBloodEffect(defender.x, GROUND_Y - 120);
+      shake.time = Math.max(shake.time, 14);
+      shake.mag = Math.max(shake.mag, opts.big ? 16 : 10);
+      hitStop = Math.max(hitStop, opts.big ? 16 : 8);
+      zoom = Math.max(zoom, opts.big ? 1.22 : 1.1);
+    }
 
     if (move.dotDamage && move.dotTicks) {
       defender.poison = {
@@ -599,6 +609,21 @@ function spawnParticles(x, y, color, count, type) {
       vy: (Math.random() - 0.5) * (type === 'hit' ? 8 : 4) - 2,
       life: 0, maxLife: 20 + Math.random() * 10,
       color, size: 3 + Math.random() * 5
+    });
+  }
+}
+
+// 피가 튀는 듯한 붉은 피격 이펙트 (중력으로 자연스럽게 떨어져서 핏방울처럼 보인다)
+function spawnBloodEffect(x, y) {
+  for (let i = 0; i < 26; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 7;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 3,
+      life: 0, maxLife: 30 + Math.random() * 25,
+      color: Math.random() < 0.5 ? '#e60023' : '#8f0016',
+      size: 3 + Math.random() * 6
     });
   }
 }
@@ -950,6 +975,13 @@ function updateFighter(f, opp) {
     return;
   }
 
+  // 그로기 (필살기 부작용으로 인한 무방비 상태 - 이 동안 아무 행동도 못함)
+  if (f.state === 'groggy') {
+    f.stateTimer--;
+    if (f.stateTimer <= 0) f.state = 'idle';
+    return;
+  }
+
   // 액션(공격/필살기/궁극기) 진행
   if (ACTION_STATES.includes(f.state)) {
     const move = f.actionMove;
@@ -971,12 +1003,16 @@ function updateFighter(f, opp) {
             owner: f,
             move,
             color: move.color || f.data.color,
-            life: 90
+            life: 90,
+            shape: move.projectileShape || 'orb',
+            spin: 0
           });
         }
       }
       if (move.type === 'dash') {
-        f.dashRemaining = 10;
+        f.dashRemaining = move.dashFrames || 10;
+        f.dashSpeed = move.dashSpeed || 6;
+        if (move.returnToStart) f.dashStartX = f.x;
       }
       if (['special1', 'special2', 'special3', 'ultimate'].includes(f.state)) {
         spawnCastEffect(f, move);
@@ -1020,7 +1056,7 @@ function updateFighter(f, opp) {
       }
     } else if (f.phase === 'active') {
       if (move.type === 'dash' && f.dashRemaining > 0) {
-        f.x += f.actionFacing * 6;
+        f.x += f.actionFacing * (f.dashSpeed || 6);
         f.dashRemaining--;
       }
       if (f.lungeRemaining > 0) {
@@ -1061,14 +1097,29 @@ function updateFighter(f, opp) {
           spawnFloatingText(f.x, GROUND_Y - 220, move.chipCastText || '합의금 챙김', '#9ad24a');
           spawnParticles(f.x, GROUND_Y - 120, '#9ad24a', 8, 'hit');
         }
+        if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {
+          f.dashReturnFromX = f.x;
+          f.dashReturnTotal = move.recovery;
+        }
         f.phase = 'recovery';
         f.stateTimer = move.recovery;
       }
     } else if (f.phase === 'recovery') {
+      if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {
+        const rp = easeOutQuad(1 - Math.max(0, f.stateTimer) / f.dashReturnTotal);
+        f.x = lerp(f.dashReturnFromX, f.dashStartX, rp);
+      }
       if (f.stateTimer <= 0) {
-        f.state = 'idle';
+        if (move.groggyDuration) {
+          f.state = 'groggy';
+          f.stateTimer = move.groggyDuration;
+          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 260, move.groggyText, move.groggyTextColor || '#ff3b6b');
+        } else {
+          f.state = 'idle';
+        }
         f.phase = null;
         f.actionMove = null;
+        f.dashStartX = null;
       }
     }
   }
@@ -1091,6 +1142,7 @@ function updateProjectiles() {
     const p = projectiles[i];
     p.x += p.vx;
     p.life--;
+    if (p.shape === 'box') p.spin = (p.spin || 0) + 0.3 * Math.sign(p.vx || 1);
     const target = p.owner === p1 ? p2 : p1;
     const dist = Math.abs(target.x - p.x);
     let hit = false;
@@ -1184,8 +1236,9 @@ function minSpecialCost(f) {
 }
 
 function updateHUD() {
-  hud.p1Hp.style.width = p1.hp + '%';
-  hud.p2Hp.style.width = p2.hp + '%';
+  // 캐릭터마다 최대체력이 다를 수 있으므로(예: 옥킴 115) 항상 각자의 최대체력 대비 비율로 표시
+  hud.p1Hp.style.width = (p1.hp / p1.data.hp * 100) + '%';
+  hud.p2Hp.style.width = (p2.hp / p2.data.hp * 100) + '%';
   hud.p1SpecialGauge.style.width = p1.specialGauge + '%';
   hud.p2SpecialGauge.style.width = p2.specialGauge + '%';
   hud.p1UltGauge.style.width = p1.ultGauge + '%';
@@ -1376,7 +1429,9 @@ function drawFighter(f) {
   const renderFacing = f.state === 'walk' ? f.walkDir : f.facing;
   const flipDir = usingPose ? renderFacing * (resolved.dir || 1) : renderFacing * (f.data.spriteDir || 1);
 
-  const h = FIGHTER_H;
+  // 그로기(바닥에 뻗은 가로로 긴 사진)는 서 있는 캐릭터와 같은 높이로 그리면
+  // 붕 떠 보이므로 낮게 그려서 실제로 바닥에 누워있는 것처럼 보이게 한다
+  const h = f.state === 'groggy' ? FIGHTER_H * 0.5 : FIGHTER_H;
   const w = fighterWidth(img, h);
   let offsetX = 0, offsetY = 0, rotate = 0, scaleX = 1, scaleY = 1;
   let tint = null, glow = null;
@@ -1414,6 +1469,10 @@ function drawFighter(f) {
     case 'hitstun':
       offsetX = Math.sin(t * 40) * 5;
       tint = 'rgba(255,60,40,0.35)';
+      break;
+    case 'groggy':
+      offsetX = Math.sin(t * 3) * 2;
+      tint = 'rgba(255,200,80,0.25)';
       break;
     case 'punch1':
     case 'punch2': {
@@ -1660,8 +1719,33 @@ function drawFighter(f) {
   }
 }
 
+function roundRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 function drawProjectile(p) {
   ctx.save();
+  if (p.shape === 'box') {
+    // 샤드탑박스를 실제로 던진 것처럼 회전하며 날아가는 각진 박스 이펙트
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.spin || 0);
+    ctx.shadowColor = p.color || '#000';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#1c1c1c';
+    roundRectPath(-19, -12, 38, 24, 6);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    roundRectPath(-16, -9, 32, 6, 3);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.shadowColor = p.color;
   ctx.shadowBlur = 20;
   ctx.fillStyle = p.color;
