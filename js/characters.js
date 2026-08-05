@@ -88,7 +88,9 @@ const CHARACTERS = [
       ultimate: {
         // 상대가 멀리 있어도 지속시간 내내 확실하게 맞도록 사실상 화면 전체 범위로 설정
         name: '황산 분사', castText: '신지드-모드', type: 'aura',
-        duration: 300, tickDamage: 7, tickInterval: 20, range: 999,
+        // 이제 막으면 경감되긴 하지만, 안 막았을 때 총딜(7*15=105)이 세 궁극기 중
+        // 가장 셌어서 6으로 낮춤 (총 90딜)
+        duration: 300, tickDamage: 6, tickInterval: 20, range: 999,
         startup: 16, active: 10, recovery: 20,
         color: '#a8ff3b'
       }
@@ -150,7 +152,8 @@ const CHARACTERS = [
         },
         {
           key: 'special2', name: '정치쑈', castText: '마타도어 입니다', type: 'burst', ignoreFacing: true,
-          damage: 14, range: 999,
+          // 같은 게이지 비용(40)인 양주완의 오물 뿌리기(10+도트15=25)보다 총딜이 한참 낮았어서 상향
+          damage: 16, range: 999,
           startup: 20, active: 10, recovery: 22,
           gaugeCost: 40, color: '#d63b3b',
           cooldown: 320

@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 9;
+const ASSET_VERSION = 10;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -383,6 +383,7 @@ function startMatch(playerCharId) {
   gameScreen.classList.remove('hidden');
   touchControlsEl.classList.remove('hidden');
   timerEl.textContent = ROUND_TIME;
+  timerEl.classList.remove('urgent');
 
   lastTs = performance.now();
   running = true;
@@ -429,6 +430,8 @@ function loop(ts) {
       secondAccum -= 1000;
       matchTimer--;
       timerEl.textContent = Math.max(matchTimer, 0);
+      // 10초 이하로 남으면 다급함이 느껴지도록 타이머가 붉게 깜빡임
+      timerEl.classList.toggle('urgent', matchTimer <= 10 && matchTimer > 0);
       if (matchTimer <= 0) endMatch(p1.hp === p2.hp ? null : (p1.hp > p2.hp ? p1 : p2));
     }
   }
@@ -1337,10 +1340,24 @@ function minSpecialCost(f) {
   return Math.min(...f.data.moves.specials.map(s => s.gaugeCost));
 }
 
+// HP가 줄어들수록 초록→노랑→빨강으로 바뀌고, 위험 수위에서는 테두리가 은은하게 깜빡인다
+function updateHpBarStyle(barEl, frac) {
+  barEl.classList.toggle('mid', frac <= 0.5 && frac > 0.25);
+  barEl.classList.toggle('low', frac <= 0.25);
+  barEl.parentElement.classList.toggle('critical', frac <= 0.2 && frac > 0);
+}
+
 function updateHUD() {
   // 캐릭터마다 최대체력이 다를 수 있으므로(예: 옥킴 115) 항상 각자의 최대체력 대비 비율로 표시
-  hud.p1Hp.style.width = (p1.hp / p1.data.hp * 100) + '%';
-  hud.p2Hp.style.width = (p2.hp / p2.data.hp * 100) + '%';
+  const p1Frac = p1.hp / p1.data.hp;
+  const p2Frac = p2.hp / p2.data.hp;
+  hud.p1Hp.style.width = (p1Frac * 100) + '%';
+  hud.p2Hp.style.width = (p2Frac * 100) + '%';
+  updateHpBarStyle(hud.p1Hp, p1Frac);
+  updateHpBarStyle(hud.p2Hp, p2Frac);
+  // 맞는 순간 초상화 테두리가 붉게 번쩍여 피격 피드백을 HUD에서도 느끼게 한다
+  hud.p1Portrait.classList.toggle('hitFlash', p1.hitFlash > 0);
+  hud.p2Portrait.classList.toggle('hitFlash', p2.hitFlash > 0);
   hud.p1SpecialGauge.style.width = p1.specialGauge + '%';
   hud.p2SpecialGauge.style.width = p2.specialGauge + '%';
   hud.p1UltGauge.style.width = p1.ultGauge + '%';
