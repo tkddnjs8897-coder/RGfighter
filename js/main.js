@@ -91,6 +91,23 @@ CHARACTERS.forEach(c => {
 // ----- 캐릭터 선택 화면 구성 -----
 // 캐릭터를 고르면 바로 시작하지 않고 맵 선택 화면으로 넘어간다
 let pendingCharId = null;
+
+// 선택 화면에 공용으로 쓰는 "랜덤" 카드 (캐릭터/맵 둘 다 실제 이미지가 없으니 물음표 아이콘으로 표시)
+function buildRandomCard(onPick) {
+  const card = document.createElement('div');
+  card.className = 'selectCard randomCard';
+  const icon = document.createElement('div');
+  icon.className = 'randomIcon';
+  icon.textContent = '?';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'charName';
+  nameEl.textContent = '랜덤';
+  card.appendChild(icon);
+  card.appendChild(nameEl);
+  card.addEventListener('click', onPick);
+  return card;
+}
+
 CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard';
@@ -109,6 +126,13 @@ CHARACTERS.forEach(c => {
   });
   selectGrid.appendChild(card);
 });
+
+// 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행
+selectGrid.appendChild(buildRandomCard(() => {
+  pendingCharId = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id;
+  selectScreen.classList.add('hidden');
+  mapScreen.classList.remove('hidden');
+}));
 
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
 const COMING_SOON_CHARACTERS = [
@@ -150,6 +174,13 @@ STAGES.forEach(s => {
   });
   mapGrid.appendChild(card);
 });
+
+// 맵 랜덤 선택
+mapGrid.appendChild(buildRandomCard(() => {
+  currentStage = STAGES[Math.floor(Math.random() * STAGES.length)];
+  mapScreen.classList.add('hidden');
+  startMatch(pendingCharId);
+}));
 
 document.getElementById('mapBackBtn').addEventListener('click', () => {
   mapScreen.classList.add('hidden');
@@ -294,10 +325,16 @@ let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff';
 // 상태 전환(공격류) 목록 - 판정 로직과 렌더 스무딩 강도 판단에 공용으로 사용
 const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
 
+let lastCpuId = null;
 function startMatch(playerCharId) {
   const playerData = CHARACTERS.find(c => c.id === playerCharId);
-  const remainingChars = CHARACTERS.filter(c => c.id !== playerCharId);
+  let remainingChars = CHARACTERS.filter(c => c.id !== playerCharId);
+  // 다른 후보가 있는데도 직전 대전 상대가 연달아 또 나오는 게 매번 같은 캐릭터만
+  // 나오는 것처럼 느껴지는 원인이었으므로, 고를 수 있는 다른 캐릭터가 있으면 제외한다
+  const freshChars = remainingChars.filter(c => c.id !== lastCpuId);
+  if (freshChars.length) remainingChars = freshChars;
   const cpuData = remainingChars[Math.floor(Math.random() * remainingChars.length)];
+  lastCpuId = cpuData.id;
 
   p1 = new Fighter(playerData, 260, false);
   p2 = new Fighter(cpuData, 700, true);
@@ -330,9 +367,9 @@ function startMatch(playerCharId) {
   document.getElementById('mkP2').textContent = `X ${m.punch2.name}`;
   document.getElementById('mkK1').textContent = `C ${m.kick1.name}`;
   document.getElementById('mkK2').textContent = `V ${m.kick2.name}`;
-  document.getElementById('mkS1').textContent = `A ${m.specials[0].name}`;
-  document.getElementById('mkS2').textContent = `S ${m.specials[1].name}`;
-  document.getElementById('mkS3').textContent = `D ${m.specials[2].name}`;
+  document.querySelector('#mkS1 .mkLabel').textContent = `A ${m.specials[0].name}`;
+  document.querySelector('#mkS2 .mkLabel').textContent = `S ${m.specials[1].name}`;
+  document.querySelector('#mkS3 .mkLabel').textContent = `D ${m.specials[2].name}`;
   document.getElementById('mkUlt').textContent = `Space ${m.ultimate.name}`;
 
   // 모바일 터치 버튼도 실제 기술명으로 동기화 (필살기는 이름이 길어서 번호로 고정 표기)
@@ -513,7 +550,10 @@ function applyHit(attacker, defender, move, opts) {
     defender.hitFlash = 10;
     if (!hasArmor) {
       defender.state = 'hitstun';
-      defender.stateTimer = move.name === '궁극기' || move.type === 'ultimate' || attacker.state === 'ultimate' ? 34 : 18;
+      // 변신형 궁극기(메카모드/일본모드)로 버프받은 상태에서 맞히면 경직도 더 크게 준다.
+      // (예전 조건은 attacker.state === 'ultimate' 였는데 실제 타격은 punch/kick 상태에서
+      // 일어나 절대 참이 될 수 없는 죽은 코드였음)
+      defender.stateTimer = attacker.transformTimer > 0 ? 34 : 18;
       const push = attacker.x < defender.x ? 1 : -1;
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
@@ -553,6 +593,13 @@ function applyHit(attacker, defender, move, opts) {
   }
 }
 
+// 오라(지속 도트) 등 방향성 없는 지속 피해에도 정면에서 제대로 막고 있으면
+// 일반 타격과 동일하게 칩 데미지만 들어가도록 판정하기 위한 공용 방어 체크
+function isGuardingAgainst(defender, sourceX) {
+  const facingCorrect = (sourceX < defender.x && defender.facing === -1) || (sourceX > defender.x && defender.facing === 1);
+  return defender.guarding && facingCorrect && (defender.state === 'block' || defender.state === 'crouch');
+}
+
 // ----- 상태이상 / 지속효과 처리 (독, 오라, 변신) -----
 function processStatusEffects(f, opp) {
   if (f.state === 'ko') return;
@@ -578,10 +625,14 @@ function processStatusEffects(f, opp) {
     if (f.auraTick % (f.auraMove.tickInterval || 25) === 0) {
       const dist = Math.abs(opp.x - f.x);
       if (dist <= (f.auraMove.range || 200) && opp.state !== 'ko') {
-        opp.hp = Math.max(0, opp.hp - f.auraMove.tickDamage);
+        // 정면에서 제대로 막고 있으면(서서/앉아 막기 + 방향 일치) 궁극기 도트도 칩 데미지로 경감
+        const blocked = isGuardingAgainst(opp, f.x);
+        const tickDmg = blocked ? Math.max(1, Math.round(f.auraMove.tickDamage * 0.15)) : f.auraMove.tickDamage;
+        opp.hp = Math.max(0, opp.hp - tickDmg);
         opp.hitFlash = 6;
-        spawnParticles(opp.x, GROUND_Y - 120, f.auraMove.color, 6, 'spark');
+        spawnParticles(opp.x, GROUND_Y - 120, blocked ? '#3bd6ff' : f.auraMove.color, 6, 'spark');
         gainGauge(f, 2);
+        if (blocked) gainGauge(opp, tickDmg * 1.5);
         if (opp.hp <= 0 && opp.state !== 'ko') {
           opp.state = 'ko'; opp.stateTimer = 9999;
           triggerKO(f);
@@ -961,7 +1012,8 @@ function runAI(f, opp) {
       break;
     case 'special': {
       const specials = f.data.moves.specials;
-      const options = ['special1', 'special2', 'special3'].filter((k, i) => f.specialGauge >= specials[i].gaugeCost);
+      const options = ['special1', 'special2', 'special3'].filter((k, i) =>
+        f.specialGauge >= specials[i].gaugeCost && !(specials[i].cooldown && f.cooldowns[k] > 0));
       if (options.length) tryStartAction(f, options[Math.floor(Math.random() * options.length)]);
       else { f.walkDir = opp.x > f.x ? 1 : -1; f.x += f.walkDir * MOVE_SPEED * f.speedMult; f.state = 'walk'; }
       break;
@@ -1307,6 +1359,28 @@ function updateHUD() {
   tcS2El.classList.toggle('ready', specialReady(1));
   tcS3El.classList.toggle('ready', specialReady(2));
   tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
+
+  updateSpecialCooldownUI(tcS1El, document.getElementById('mkS1'), p1Specials[0], 'special1');
+  updateSpecialCooldownUI(tcS2El, document.getElementById('mkS2'), p1Specials[1], 'special2');
+  updateSpecialCooldownUI(tcS3El, document.getElementById('mkS3'), p1Specials[2], 'special3');
+}
+
+// 필살기 쿨타임을 터치 버튼(원형 게이지+숫자)과 데스크톱 키 안내(초 단위 텍스트) 양쪽에 표시
+function updateSpecialCooldownUI(tcEl, mkEl, move, key) {
+  const cd = p1.cooldowns[key] || 0;
+  const max = move.cooldown || 0;
+  const active = max > 0 && cd > 0;
+  const cdSpan = tcEl.querySelector('.tcCd');
+  if (cdSpan) {
+    cdSpan.style.setProperty('--cd', active ? Math.ceil((cd / max) * 100) : 0);
+    cdSpan.classList.toggle('cooling', active);
+    cdSpan.textContent = active ? Math.ceil(cd / 60) : '';
+  }
+  if (mkEl) {
+    mkEl.classList.toggle('cooling', active);
+    const mkCd = mkEl.querySelector('.mkCd');
+    if (mkCd) mkCd.textContent = active ? `${(cd / 60).toFixed(1)}s` : '';
+  }
 }
 
 // ----- 렌더링 -----
