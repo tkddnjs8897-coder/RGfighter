@@ -65,20 +65,24 @@ const CHARACTERS = [
           key: 'special1', name: '모자 다량 던지기', castText: '모자 투척', type: 'projectile',
           damage: 6, projectileCount: 3, range: 999,
           startup: 14, active: 30, recovery: 20,
-          gaugeCost: 35, color: '#e0c25a'
+          gaugeCost: 35, color: '#e0c25a',
+          // 필살기 연타 방지: 게이지가 차 있어도 쓰고 나면 일정 시간 재사용 불가
+          cooldown: 260
         },
         {
           key: 'special2', name: '오물 뿌리기', castText: '오물 투척', type: 'burst',
           damage: 10, range: 140,
           dotDamage: 3, dotTicks: 5, dotInterval: 25,
           startup: 13, active: 8, recovery: 20,
-          gaugeCost: 40, color: '#7a8b3a'
+          gaugeCost: 40, color: '#7a8b3a',
+          cooldown: 320
         },
         {
           key: 'special3', name: '편의점 음식 먹고 회복', castText: 'HP회복', type: 'heal',
           healAmount: 18, damage: 0,
           startup: 20, active: 6, recovery: 14,
-          gaugeCost: 35, color: '#ffd166'
+          gaugeCost: 35, color: '#ffd166',
+          cooldown: 320
         }
       ],
       ultimate: {
@@ -141,13 +145,15 @@ const CHARACTERS = [
           key: 'special1', name: '법의 심판', castText: '법의 심판', type: 'dash',
           damage: 18, range: 140,
           startup: 12, active: 6, recovery: 18,
-          gaugeCost: 35, color: '#c9a227'
+          gaugeCost: 35, color: '#c9a227',
+          cooldown: 260
         },
         {
           key: 'special2', name: '정치쑈', castText: '마타도어 입니다', type: 'burst', ignoreFacing: true,
           damage: 14, range: 999,
           startup: 20, active: 10, recovery: 22,
-          gaugeCost: 40, color: '#d63b3b'
+          gaugeCost: 40, color: '#d63b3b',
+          cooldown: 320
         },
         {
           key: 'special3', name: '보험사기', castText: '너-고소', type: 'counter',
@@ -157,7 +163,8 @@ const CHARACTERS = [
           // 진짜로 반격에 성공하면 그보다 훨씬 큰 데미지+연출로 보상.
           chipHeal: 10, chipCastText: '합의금 챙김',
           startup: 10, active: 20, recovery: 20,
-          gaugeCost: 35, color: '#5b7fa6'
+          gaugeCost: 35, color: '#5b7fa6',
+          cooldown: 320
         }
       ],
       ultimate: {
@@ -201,45 +208,51 @@ const CHARACTERS = [
       // 로우킥 전용 사진이 idle과 동일해 정지된 것처럼 보였던 문제 - 베기(punch2) 사진을 재사용해
       // 최소한 칼을 휘두르는 동작으로는 보이게 한다
       kick1: { src: 'assets/characters/ok_ult_punch2.png', dir: 1 },
-      kick2: { src: 'assets/characters/ok_ult_kick2.png', dir: -1 },
-      block: { src: 'assets/characters/ok_ult_block.png', dir: 1 }
+      kick2: { src: 'assets/characters/ok_ult_kick2.png', dir: -1 }
+      // block(ok_ult_block.png) 원본 사진은 다리 쪽에 검은 사각형으로 데이터가 지워져 있어
+      // (누끼 원본부터 결손, 복구 불가) 사용하지 않고 평상시 방어 자세(poseSprites.block)로
+      // 자동 대체되게 둔다
     },
-    hp: 115,
+    // 예전에는 HP/기본기/궁극기 배율까지 세 캐릭터 중 전부 가장 높게 잡혀 있어서
+    // 명백히 사기 캐릭터였음 - 다른 두 캐릭터 기준에 맞춰 전반적으로 하향
+    hp: 100,
     moves: {
-      punch1: { name: '잽', damage: 3, range: 150, startup: 5, active: 4, recovery: 8 },
-      punch2: { name: '스트레이트', damage: 6, range: 190, startup: 9, active: 5, recovery: 13 },
-      kick1: { name: '로우킥', damage: 4, range: 160, startup: 7, active: 5, recovery: 10, guardType: 'low' },
-      kick2: { name: '하이킥', damage: 7, range: 220, startup: 13, active: 6, recovery: 17, guardType: 'high' },
+      punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 8 },
+      punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 13 },
+      kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 10, guardType: 'low' },
+      kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 17, guardType: 'high' },
       specials: [
         {
           key: 'special1', name: '샤드탑박스 던지기', castText: '샤드탑박스!', type: 'projectile',
-          damage: 16, range: 999,
+          damage: 13, range: 999,
           startup: 14, active: 26, recovery: 20,
-          gaugeCost: 67, color: '#2a2a2a',
-          projectileShape: 'box', knockback: 46
+          gaugeCost: 50, color: '#2a2a2a',
+          projectileShape: 'box', knockback: 46,
+          cooldown: 300
         },
         {
           key: 'special2', name: '피자 먹기', castText: '피자먹기', type: 'heal',
           healAmount: 999, damage: 0,
           startup: 20, active: 10, recovery: 14,
           gaugeCost: 50, color: '#ffb703',
-          groggyDuration: 180, groggyText: '혈당스파이크',
+          groggyDuration: 210, groggyText: '혈당스파이크',
           // 전체 회복이 너무 자주 나오지 않도록 게이지와 별개로 15초 쿨타임을 둔다
           cooldown: 900
         },
         {
           key: 'special3', name: '옥북이 변신 돌진', castText: '갸아아악! 구와악!', type: 'dash',
-          damage: 24, range: 150,
+          damage: 17, range: 150,
           startup: 12, active: 9, recovery: 16,
-          gaugeCost: 38, color: '#3b5d3b',
+          gaugeCost: 40, color: '#3b5d3b',
           dashSpeed: 11, dashFrames: 9, returnToStart: true, unblockable: true,
           // 돌진 중 상대방과 겹쳐도 밀어내지 않고 그대로 뚫고 지나간다
-          pierce: true
+          pierce: true,
+          cooldown: 280
         }
       ],
       ultimate: {
         name: '일본-좆킴', castText: '일본-좆킴', type: 'transform',
-        duration: 480, dmgMult: 2.2, speedMult: 1.15,
+        duration: 480, dmgMult: 1.65, speedMult: 1.15,
         startup: 20, active: 10, recovery: 16,
         color: '#ff2b2b', bloodOnHit: true,
         // 변신 중 공격 판정에 들어가 있을 때 맞아도 경직/넉백 없이 공격을 계속 이어간다
