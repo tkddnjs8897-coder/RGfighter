@@ -395,7 +395,9 @@ const CHARACTERS = [
       // 1/2번째는 "꿈1"/"꿈2"(예전 오토바이 여행 사진) 회상 연출만 나올 뿐 아무 효과가 없다.
       // 3번째(마지막 스택)에서만 실제로 "빛의용사 형준" 모드로 변신한다.
       ultimate: {
-        name: '꿈결', castText: '...', type: 'stackTransform',
+        // 궁극기 버튼 표시 이름은 그냥 "궁극기"로 고정 (스택을 쌓아도 바뀌지 않음,
+        // 빛의용사 형준 모드일 때만 HUD에서 "초궁극기"로 별도 표시됨)
+        name: '궁극기', castText: '...', type: 'stackTransform',
         startup: 16, active: 6, recovery: 14,
         color: '#ffd23b',
         stacks: [
