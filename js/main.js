@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 19;
+const ASSET_VERSION = 20;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -15,7 +15,8 @@ const FLY_MAX_HEIGHT = 190;
 const FIGHTER_W = 160;
 const FIGHTER_H = 240;
 const MIN_GAP = 130;
-const ROUND_TIME = 60;
+// 60초 -> 90초로 연장 (형준이 궁극기 3스택을 다 채우기 전에 라운드가 끝나버린다는 피드백)
+const ROUND_TIME = 90;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -1226,6 +1227,7 @@ function updateFighter(f, opp) {
           // 스택형 궁극기(꿈1/꿈2 -> 빛 모드)는 지금 몇 번째 사용인지(f.ultStacks)에 따라
           // 배너 문구/색이 달라진다 - 실제 스택 증가는 active phase에서 일어나므로 여기서는
           // "이번 사용으로 도달할 스택"을 미리 읽어서 보여준다
+          let isFinalActivation = false;
           if (move.type === 'stackTransform') {
             const stacks = move.stacks || [];
             const idx = f.ultStacks || 0;
@@ -1235,20 +1237,36 @@ function updateFighter(f, opp) {
             } else if (move.finalForm) {
               bannerText = move.finalForm.castText || bannerText;
               bannerColor = move.finalForm.color || bannerColor;
+              isFinalActivation = true;
             }
           }
           if (bannerText) {
             ultBannerText = bannerText;
             ultBannerColor = bannerColor;
-            ultBannerTimer = 50;
+            ultBannerTimer = isFinalActivation ? 90 : 50;
           }
-          triggerFlash(bannerColor, 18);
-          spawnImpactLines(STAGE_W / 2, STAGE_H / 2, bannerColor, 18);
-          spawnRing(f.x, GROUND_Y - 120, bannerColor, 260, 36);
-          hitStop = Math.max(hitStop, 14);
-          zoom = 1.3;
-          shake.time = Math.max(shake.time, 14);
-          shake.mag = Math.max(shake.mag, 7);
+          if (isFinalActivation) {
+            // 빛의용사 형준 최종 변신: 최대한 화려하게 - 겹겹이 터지는 링/집중선 + 강한 화면 흔들림
+            triggerFlash('#ffffff', 26);
+            spawnImpactLines(STAGE_W / 2, STAGE_H / 2, bannerColor, 34);
+            spawnRing(f.x, GROUND_Y - 120, bannerColor, 180, 26);
+            spawnRing(f.x, GROUND_Y - 120, '#ffffff', 320, 44);
+            spawnRing(f.x, GROUND_Y - 120, bannerColor, 460, 56);
+            spawnParticles(f.x, GROUND_Y - 140, bannerColor, 40, 'hit');
+            spawnParticles(f.x, GROUND_Y - 140, '#ffffff', 24, 'spark');
+            hitStop = Math.max(hitStop, 26);
+            zoom = 1.55;
+            shake.time = Math.max(shake.time, 26);
+            shake.mag = Math.max(shake.mag, 12);
+          } else {
+            triggerFlash(bannerColor, 18);
+            spawnImpactLines(STAGE_W / 2, STAGE_H / 2, bannerColor, 18);
+            spawnRing(f.x, GROUND_Y - 120, bannerColor, 260, 36);
+            hitStop = Math.max(hitStop, 14);
+            zoom = 1.3;
+            shake.time = Math.max(shake.time, 14);
+            shake.mag = Math.max(shake.mag, 7);
+          }
         } else {
           // 파티클/글로우는 기술 고유 색(fxColor) 유지하되, 글자는 너무 어두우면 안 보이니
           // 필요하면 move.textColor로 따로 밝은 색을 지정할 수 있게 함
@@ -1329,8 +1347,14 @@ function updateFighter(f, opp) {
           f.atkSpeedMult = ff.atkSpeedMult || 1;
           f.defenseMult = ff.defenseMult || 1;
           f.ultStacks = stacks.length + 1;
-          spawnParticles(f.x, GROUND_Y - 120, ff.color || move.color, 24, 'hit');
+          // 최종 변신 순간: 파티클을 몇 겹으로 쏟아붓고 링을 추가로 한 번 더 터뜨려서
+          // 위에서 이미 터진 배너 이펙트와 겹치며 더 화려하게 보이게 한다
+          spawnParticles(f.x, GROUND_Y - 140, ff.color || move.color, 30, 'hit');
+          spawnParticles(f.x, GROUND_Y - 100, '#ffffff', 20, 'spark');
+          spawnRing(f.x, GROUND_Y - 120, ff.color || move.color, 200, 30);
         } else {
+          // 꿈1/꿈2는 그렇게 "변신"하는 것처럼 잠깐 이펙트만 나오고 아무 효과 없이 바로 풀린다
+          // (사진을 따로 화면에 띄우지 않음 - HUD 스택 칸에서만 확인 가능)
           f.ultStacks = nextStack;
           const s = stacks[nextStack - 1];
           spawnParticles(f.x, GROUND_Y - 120, (s && s.color) || move.color, 14, 'hit');
@@ -2036,6 +2060,17 @@ function drawFighter(f) {
       const mv = f.actionMove;
       const mvType = mv ? mv.type : null;
       glow = (mv && mv.color) || f.data.color;
+
+      // 안형준 숨고르기(필살기2): 엎드린 채 낑낑대며 바닥을 비비는 몸부림 - 빠른 좌우 흔들림 + 들썩임
+      if (f.state === 'special2' && f.data.id === 'hyungjun') {
+        const wiggle = Math.sin(t * 30) * 4;
+        const bob = Math.abs(Math.sin(t * 16)) * 2;
+        offsetX = wiggle;
+        offsetY = -bob;
+        rotate = Math.sin(t * 30) * 3 * Math.PI / 180;
+        scaleX = 1 + Math.sin(t * 22) * 0.02;
+        break;
+      }
 
       // 보험사기: 경광등처럼 빨강/파랑이 빠르게 번갈아 번쩍이는 연출
       if (f.data.id === 'gura' && mv && mv.key === 'special3') {

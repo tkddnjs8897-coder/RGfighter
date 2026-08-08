@@ -268,9 +268,9 @@ const CHARACTERS = [
     name: '안형준',
     color: '#8b5cf6',
     // 궁극기가 즉발이 아니라 스택형(게이지를 3번 채워야 최종 변신)이라 다른 캐릭터와 같은
-    // 속도로 차면 한 판(60초) 안에 3스택을 다 채우기 사실상 불가능함 - 형준만 궁극기 게이지가
-    // 1.6배 빠르게 차게 보정
-    ultGaugeMult: 1.6,
+    // 속도로 차면 한 판 안에 3스택을 다 채우기 사실상 불가능함 - 형준만 궁극기 게이지가
+    // 더 빠르게 차게 보정 (1.6배 -> 2.2배로 추가 상향)
+    ultGaugeMult: 2.2,
     // 아직 전용 기본 컷아웃 사진이 없어서, 정면을 보고 서 있는 막기 자세를
     // idle/walk 등 전용 포즈가 없는 상태의 기본 대체 이미지로 사용
     sprite: 'assets/characters/hyungjun_block.png',
@@ -290,7 +290,10 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/hyungjun_hitstun.png', dir: -1 },
       special1: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 },
-      special2: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 }
+      special2: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 },
+      // 전용 그로기(숨고르기 직후 무방비 상태) 사진이 없으면 기본 스프라이트(방어 자세 사진)로
+      // 대체돼서 그로기 중인데 막기 자세로 보이는 문제가 있었음 - 엎드린 회복 사진을 그대로 재사용
+      groggy: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 }
     },
     // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
     ultimateForm: {
@@ -316,9 +319,10 @@ const CHARACTERS = [
       hitstun: { src: 'assets/characters/hyungjun_yy_hitstun.png', dir: 1 }
     },
     // 궁극기(꿈1/꿈2 스택)가 3스택에 도달해 "빛의용사 형준" 모드로 변신하면 쓰이는 전용 이미지.
-    // idle/walk/jump/crouch/hitstun 전용 사진은 아직 없어서(공격/막기 4장만 받음), 그 상태들은
-    // resolveFighterSprite에서 자동으로 평상시 poseSprites로 대체된다 (나중에 추가 사진이 오면 채우면 됨)
+    // walk/jump/crouch/hitstun 전용 사진은 없어서(기본자세+공격/막기 5장만 받음), resolveFighterSprite가
+    // 자동으로 idle 사진으로 대체해서 보여준다 (나중에 추가 사진이 오면 그때 채우면 됨)
     lightForm: {
+      idle: { src: 'assets/characters/hyungjun_light_idle.png', dir: 1 },
       punch1: { src: 'assets/characters/hyungjun_light_thrust.png', dir: 1 },
       punch2: { src: 'assets/characters/hyungjun_light_swing_a.png', dir: 1 },
       kick1: { src: 'assets/characters/hyungjun_light_sprawl.png', dir: 1 },
@@ -354,8 +358,10 @@ const CHARACTERS = [
           healAmount: 35, damage: 0,
           startup: 18, active: 8, recovery: 16,
           gaugeCost: 35, color: '#ffb703',
-          groggyDuration: 80, groggyText: '헉헉...',
-          cooldown: 420
+          groggyDuration: 80, groggyText: '낑낑...',
+          cooldown: 420,
+          // 엎드려서 낑낑대는 동작 도중엔 맞아도 자세가 안 풀리고 그대로 회복까지 이어간다
+          armor: true
         },
         {
           // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
@@ -386,8 +392,8 @@ const CHARACTERS = [
         startup: 16, active: 6, recovery: 14,
         color: '#ffd23b',
         stacks: [
-          { name: '꿈1', castText: '꿈1...', color: '#7fd9ff', image: 'assets/characters/hyungjun_dream1.png' },
-          { name: '꿈2', castText: '꿈2...', color: '#ff9ecf', image: 'assets/characters/hyungjun_dream2.png' }
+          { name: '꿈1', castText: '꿈(1스택)', color: '#7fd9ff', image: 'assets/characters/hyungjun_dream1.png' },
+          { name: '꿈2', castText: '꿈(2스택)', color: '#ff9ecf', image: 'assets/characters/hyungjun_dream2.png' }
         ],
         finalForm: {
           // 빛의용사 형준: 날아다니며 싸우는 최종 변신. 공격력/방어력 전부 큰 폭으로 강화되고,
