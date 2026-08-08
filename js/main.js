@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 17;
+const ASSET_VERSION = 18;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -1174,7 +1174,9 @@ function updateFighter(f, opp) {
           shake.time = Math.max(shake.time, 14);
           shake.mag = Math.max(shake.mag, 7);
         } else {
-          if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, fxColor);
+          // 파티클/글로우는 기술 고유 색(fxColor) 유지하되, 글자는 너무 어두우면 안 보이니
+          // 필요하면 move.textColor로 따로 밝은 색을 지정할 수 있게 함
+          if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, move.textColor || fxColor);
           spawnRing(f.x, GROUND_Y - 120, fxColor, 100, 22);
         }
       }
@@ -1303,7 +1305,7 @@ function updateProjectiles() {
     p.x += p.vx;
     p.life--;
     if (p.shape === 'box') p.spin = (p.spin || 0) + 0.3 * Math.sign(p.vx || 1);
-    if (p.shape === 'sprite') p.spin = (p.spin || 0) + (p.spinSpeed || 0.12) * Math.sign(p.vx || 1);
+    // sprite(오토바이 등 실제 사진) 투사체는 빙글빙글 돌지 않고 직선으로 날아감
     const target = p.owner === p1 ? p2 : p1;
     const dist = Math.abs(target.x - p.x);
     let removeNow = false;

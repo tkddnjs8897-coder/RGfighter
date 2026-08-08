@@ -229,7 +229,7 @@ const CHARACTERS = [
           key: 'special1', name: '샤드탑박스 던지기', castText: '샤드탑박스!', type: 'projectile',
           damage: 13, range: 999,
           startup: 14, active: 26, recovery: 20,
-          gaugeCost: 50, color: '#2a2a2a',
+          gaugeCost: 50, color: '#2a2a2a', textColor: '#ffd23b',
           projectileShape: 'box', knockback: 46,
           cooldown: 300
         },
@@ -295,7 +295,8 @@ const CHARACTERS = [
       kick1: { src: 'assets/characters/hyungjun_mj_kick1.png', dir: -1 },
       kick2: { src: 'assets/characters/hyungjun_mj_kick2.png', dir: -1 },
       jump: { src: 'assets/characters/hyungjun_mj_jump.png', dir: 1 },
-      block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 }
+      block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 },
+      hitstun: { src: 'assets/characters/hyungjun_mj_hitstun.png', dir: 1 }
     },
     // 마운자로 모드가 끝난 뒤 이어지는 요요현상(10초) 동안 이 이미지들로 교체된다.
     // 전용 block 사진은 없어서 그쪽만 punch1 사진으로 대체
