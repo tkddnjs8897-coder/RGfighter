@@ -262,5 +262,65 @@ const CHARACTERS = [
         hyperArmor: true
       }
     }
+  },
+  {
+    id: 'hyungjun',
+    name: '안형준',
+    color: '#8b5cf6',
+    // 아직 전용 기본 컷아웃 사진이 없어서, 정면을 보고 서 있는 막기 자세를
+    // idle/walk 등 전용 포즈가 없는 상태의 기본 대체 이미지로 사용
+    sprite: 'assets/characters/hyungjun_block.png',
+    portrait: 'assets/characters/hyungjun_portrait.jpg',
+    portraitCropTop: true,
+    // 동작 사진들이 전부 오른쪽을 보고 있는 구도라 기본 방향(오른쪽)과 일치, 보정 불필요
+    poseSprites: {
+      punch1: { src: 'assets/characters/hyungjun_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/hyungjun_kick2.png', dir: 1 },
+      block: { src: 'assets/characters/hyungjun_block.png', dir: 1 },
+      crouch: { src: 'assets/characters/hyungjun_crouch.png', dir: 1 },
+      jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 }
+      // hitstun/필살기/궁극기 전용 사진은 아직 없음 - 기본 스프라이트(sprite)로 자동 대체됨
+    },
+    hp: 100,
+    moves: {
+      // 기본기(잽/스트레이트/로우킥/하이킥) 수치는 다른 캐릭터들과 동일하게 맞춤
+      punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
+      punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
+      kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 11, guardType: 'low' },
+      kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
+      // ----- TODO: 아래 필살기 3개 / 궁극기는 실제 컨셉·사진이 정해지기 전까지의
+      // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
+      specials: [
+        {
+          key: 'special1', name: '박치기', castText: '박치기', type: 'dash',
+          damage: 18, range: 140,
+          startup: 12, active: 6, recovery: 18,
+          gaugeCost: 35, color: '#8b5cf6',
+          cooldown: 260
+        },
+        {
+          key: 'special2', name: '괴성', castText: '으아아!', type: 'burst', ignoreFacing: true,
+          damage: 15, range: 999,
+          startup: 20, active: 10, recovery: 22,
+          gaugeCost: 40, color: '#c084fc',
+          cooldown: 320
+        },
+        {
+          key: 'special3', name: '숨고르기', castText: 'HP회복', type: 'heal',
+          healAmount: 18, damage: 0,
+          startup: 20, active: 6, recovery: 14,
+          gaugeCost: 35, color: '#a78bfa',
+          cooldown: 320
+        }
+      ],
+      ultimate: {
+        name: '전력질주', castText: '전력질주', type: 'transform',
+        duration: 480, dmgMult: 1.6, speedMult: 1.3,
+        startup: 20, active: 10, recovery: 16,
+        color: '#8b5cf6'
+      }
+    }
   }
 ];

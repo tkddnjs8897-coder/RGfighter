@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 10;
+const ASSET_VERSION = 11;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -135,9 +135,7 @@ selectGrid.appendChild(buildRandomCard(() => {
 }));
 
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
-const COMING_SOON_CHARACTERS = [
-  { name: '골절기', portrait: 'assets/characters/hyungjun_portrait.jpg' }
-];
+const COMING_SOON_CHARACTERS = [];
 COMING_SOON_CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard locked';
