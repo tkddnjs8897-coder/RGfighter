@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 18;
+const ASSET_VERSION = 19;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -9,6 +9,9 @@ const GROUND_Y = 460;
 const GRAVITY = 0.85;
 const JUMP_V = -16;
 const MOVE_SPEED = 3.2;
+// 빛의용사 형준 모드 등 "날아다닐 수 있는" 변신 전용 비행 이동치
+const FLY_SPEED = 6;
+const FLY_MAX_HEIGHT = 190;
 const FIGHTER_W = 160;
 const FIGHTER_H = 240;
 const MIN_GAP = 130;
@@ -56,7 +59,9 @@ const hud = {
   p1SpecialGauge: document.getElementById('p1SpecialGauge'),
   p2SpecialGauge: document.getElementById('p2SpecialGauge'),
   p1UltGauge: document.getElementById('p1UltGauge'),
-  p2UltGauge: document.getElementById('p2UltGauge')
+  p2UltGauge: document.getElementById('p2UltGauge'),
+  p1UltStacks: document.getElementById('p1UltStacks'),
+  p2UltStacks: document.getElementById('p2UltStacks')
 };
 
 // ----- 이미지 로딩 -----
@@ -89,6 +94,10 @@ CHARACTERS.forEach(c => {
   if (c.yoyoForm) {
     Object.values(c.yoyoForm).forEach(p => { p.img = loadImage(p.src); });
   }
+  // 빛의용사 형준처럼 별도 visualForm으로 지정되는 변신 전용 이미지 세트
+  if (c.lightForm) {
+    Object.values(c.lightForm).forEach(p => { p.img = loadImage(p.src); });
+  }
   // 필살기/궁극기 중 실제 영상(블랙박스 등) 클립처럼 여러 장을 순서대로 보여주는 연출이 있으면 미리 로드
   const allMoves = [...c.moves.specials, c.moves.ultimate];
   allMoves.forEach(mv => {
@@ -99,6 +108,10 @@ CHARACTERS.forEach(c => {
     }
     // 투사체가 도형이 아니라 실제 사진(오토바이 등)을 쓰는 경우 미리 로드
     if (mv.projectileImage) mv.projectileImg = loadImage(mv.projectileImage);
+    // 스택형 궁극기(예: 꿈1/꿈2 -> 빛 모드)의 스택별 표시 이미지
+    if (mv.stacks) {
+      mv.stacks.forEach(s => { if (s.image) s.img = loadImage(s.image); });
+    }
   });
 });
 
@@ -305,13 +318,20 @@ class Fighter {
     this.speedMult = 1;
     this.dmgMult = 1;
     this.atkSpeedMult = 1;
+    this.defenseMult = 1;
     this.poison = null;
     this.auraTimer = 0;
     this.auraMove = null;
     this.auraTick = 0;
     this.transformTimer = 0;
+    // 지금 어떤 기술이 이 변신(transformTimer)을 일으켰는지 - yoyo/hyperArmor/bloodOnHit/
+    // visualForm 같은 변신별 세부 설정을 f.data.moves.ultimate 하나에만 있다고 가정하지 않고
+    // 실제로 변신을 시작한 move 객체에서 바로 읽기 위함 (필살기 슬롯에서 변신을 걸 수도 있으므로)
+    this.transformMove = null;
     // 변신 궁극기가 끝난 뒤 이어서 발동되는 2단계 부작용(예: 요요현상) 지속시간
     this.yoyoTimer = 0;
+    // 궁극기가 즉발이 아니라 스택형(예: 안형준의 꿈1/꿈2 -> 빛 모드)인 캐릭터용 스택 카운터
+    this.ultStacks = 0;
     this.effectApplied = false;
     this.trail = [];
     this.lungeRemaining = 0;
@@ -464,9 +484,15 @@ function scaledFrames(f, frames) {
   return Math.max(1, Math.round(frames / (f.atkSpeedMult || 1)));
 }
 
+// 지금 걸려있는 변신(transformMove)에 canFly가 있으면 하늘을 자유롭게 날아다닐 수 있다
+// (예: 안형준 빛의용사 모드) - 중력 무시 + 공중에서도 기술 사용 가능
+function isFlying(f) {
+  return f.transformTimer > 0 && !!(f.transformMove && f.transformMove.canFly);
+}
+
 // ----- 액션(기술) 시작 -----
 function tryStartAction(f, key) {
-  if (!f.isFree || !f.isGrounded) return;
+  if (!f.isFree || (!f.isGrounded && !isFlying(f))) return;
   const moves = f.data.moves;
   let move = null;
   if (key === 'punch1') move = moves.punch1;
@@ -561,21 +587,26 @@ function applyHit(attacker, defender, move, opts) {
     (defender.state === 'block' || defender.state === 'crouch');
   const blocking = !move.unblockable && defender.guarding && facingCorrect && guardStanceOk;
 
-  let dmg = Math.round(move.damage * (attacker.dmgMult || 1));
+  let dmg = Math.round(move.damage * (attacker.dmgMult || 1) * (defender.defenseMult || 1));
   if (blocking) {
-    dmg = Math.max(1, Math.round(dmg * 0.15));
+    // 방어 중 데미지 완전 무효화(예: 빛의용사 형준 모드) - 기술 자체가 아니라
+    // 방어자가 걸고 있는 변신(transformMove)에서 opt-in
+    const noDamageBlock = !!(defender.transformMove && defender.transformMove.blockNoDamage);
+    dmg = noDamageBlock ? 0 : Math.max(1, Math.round(dmg * 0.15));
     defender.hp = Math.max(0, defender.hp - dmg);
     spawnParticles(defender.x + (-defender.facing * 40), GROUND_Y - 120, '#3bd6ff', 8, 'spark');
-    spawnFloatingText(defender.x, GROUND_Y - 220, '방어함', '#3bd6ff');
+    spawnFloatingText(defender.x, GROUND_Y - 220, noDamageBlock ? '카운터!' : '방어함', '#3bd6ff');
     shake.time = 6; shake.mag = 3;
     hitStop = 3;
     gainGauge(defender, dmg * 1.5);
   } else {
     // 하이퍼 아머: 변신 궁극기 중이거나(캐릭터 전체 opt-in), 기술 자체에 armor가 붙어있으면
     // (예: 오래 서서 버텨야 하는 필살기가 몇 대 맞는다고 계속 끊기지 않도록) 경직/넉백 없이 이어간다
+    // hyperArmor/bloodOnHit는 f.data.moves.ultimate 고정이 아니라 실제로 변신을 건 move(transformMove)
+    // 기준으로 읽는다 - 필살기 슬롯에서 발동되는 변신(예: 마운자로가 특3으로 이동)에도 그대로 적용되도록
     const hasArmor = ACTION_STATES.includes(defender.state) && (
       (defender.actionMove && defender.actionMove.armor) ||
-      ((defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.data.moves.ultimate.hyperArmor)
+      ((defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.transformMove && defender.transformMove.hyperArmor)
     );
 
     defender.hp = Math.max(0, defender.hp - dmg);
@@ -598,7 +629,7 @@ function applyHit(attacker, defender, move, opts) {
     gainGauge(defender, dmg);
 
     // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
-    if ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) && attacker.data.moves.ultimate.bloodOnHit) {
+    if ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) && attacker.transformMove && attacker.transformMove.bloodOnHit) {
       spawnBloodEffect(defender.x, GROUND_Y - 120);
       shake.time = Math.max(shake.time, 14);
       shake.mag = Math.max(shake.mag, opts.big ? 16 : 10);
@@ -679,27 +710,36 @@ function processStatusEffects(f, opp) {
     f.transformTimer--;
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
     if (f.transformTimer <= 0) {
-      const yoyo = f.data.moves.ultimate.yoyo;
+      // yoyo(변신 후 부작용 단계) 설정은 f.data.moves.ultimate 고정이 아니라, 실제로 변신을
+      // 시작시킨 move(transformMove) 기준으로 읽는다 - 필살기 슬롯에서 건 변신도 지원하기 위함
+      const yoyo = f.transformMove && f.transformMove.yoyo;
       if (yoyo) {
         // 변신이 끝나면 바로 원상복귀하지 않고, 부작용(요요현상) 단계로 이어진다
         f.yoyoTimer = yoyo.duration;
         f.dmgMult = yoyo.dmgMult || 1;
         f.speedMult = yoyo.speedMult || 1;
         f.atkSpeedMult = yoyo.atkSpeedMult || 1;
+        f.defenseMult = yoyo.defenseMult || 1;
         spawnFloatingText(f.x, GROUND_Y - 260, yoyo.text || '요요현상...', yoyo.color || '#e07b1a');
         spawnParticles(f.x, GROUND_Y - 120, yoyo.color || '#e07b1a', 18, 'hit');
         shake.time = Math.max(shake.time, 10); shake.mag = Math.max(shake.mag, 6);
       } else {
-        f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1;
+        f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
+        // 스택형 궁극기(꿈1/꿈2 -> 빛 모드)로 걸었던 변신이 끝났으면 스택도 초기화
+        f.ultStacks = 0;
+        f.transformMove = null;
       }
     }
   }
 
   if (f.yoyoTimer > 0) {
     f.yoyoTimer--;
-    const yoyoColor = (f.data.moves.ultimate.yoyo && f.data.moves.ultimate.yoyo.color) || '#e07b1a';
+    const yoyoColor = (f.transformMove && f.transformMove.yoyo && f.transformMove.yoyo.color) || '#e07b1a';
     if (Math.random() < 0.25) spawnParticles(f.x, GROUND_Y - 10, yoyoColor, 1, 'spark');
-    if (f.yoyoTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; }
+    if (f.yoyoTimer <= 0) {
+      f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
+      f.transformMove = null;
+    }
   }
 }
 
@@ -957,29 +997,44 @@ function handleFighterInput(f, opp, isCPU) {
   // 이동/점프/앉기/막기 (자유 상태일 때만)
   const shiftHeld = keys['ShiftLeft'] || keys['ShiftRight'];
   f.guarding = shiftHeld;
+  const flying = isFlying(f);
   if (f.isFree) {
-    if (shiftHeld && keys['ArrowDown']) {
+    if (shiftHeld && keys['ArrowDown'] && !flying) {
       if (f.isGrounded) f.state = 'crouch'; // 앉아 막기 (로우킥 방어)
     } else if (shiftHeld) {
-      if (f.isGrounded) f.state = 'block'; // 서서 막기 (하이킥 방어)
+      // 빛 모드 비행 중에도(공중이어도) 막기가 가능해야 함
+      if (f.isGrounded || flying) f.state = 'block';
     } else {
       const wantLeft = keys['ArrowLeft'] && !keys['ArrowRight'];
       const wantRight = keys['ArrowRight'] && !keys['ArrowLeft'];
 
-      // 점프 시작: 좌/우를 같이 눌러도(대각선 점프) 이 프레임에 바로 반영
-      if (keys['ArrowUp'] && f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
+      if (flying) {
+        // 빛의용사 형준 모드: 중력을 무시하고 상하좌우로 자유 비행
+        f.vy = 0;
+        if (keys['ArrowUp']) { f.height = Math.min(f.height + FLY_SPEED, FLY_MAX_HEIGHT); f.state = 'jump'; }
+        else if (keys['ArrowDown']) { f.height = Math.max(f.height - FLY_SPEED, 0); f.state = f.height > 0 ? 'jump' : 'idle'; }
+        else if (f.height > 0) { f.state = 'jump'; }
+      } else {
+        // 점프 시작: 좌/우를 같이 눌러도(대각선 점프) 이 프레임에 바로 반영
+        if (keys['ArrowUp'] && f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
+      }
 
       // 좌우 이동: 땅/공중 모두 적용 (공중에서는 대각선 점프 궤적 제어용 공중 이동)
       if (wantLeft) {
         f.x -= MOVE_SPEED * f.speedMult;
         f.walkDir = -1;
-        if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
+        if (flying) { if (f.height <= 0) f.state = 'walk'; }
+        else if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
       } else if (wantRight) {
         f.x += MOVE_SPEED * f.speedMult;
         f.walkDir = 1;
-        if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
-      } else if (keys['ArrowDown']) {
+        if (flying) { if (f.height <= 0) f.state = 'walk'; }
+        else if (f.isGrounded && f.state !== 'jump') f.state = 'walk';
+      } else if (keys['ArrowDown'] && !flying) {
         if (f.isGrounded) f.state = 'crouch';
+      } else if (flying && f.height <= 0) {
+        // 비행 중 아무 방향키도 안 눌렀고 땅에 붙어있으면(호버링 종료) 대기로
+        f.state = 'idle';
       } else if (f.isGrounded && (f.state === 'walk' || f.state === 'crouch' || f.state === 'block')) {
         f.state = 'idle';
       }
@@ -1161,14 +1216,29 @@ function updateFighter(f, opp) {
         const fxColor = move.color || f.data.color;
         if (f.state === 'ultimate') {
           // 궁극기는 킹오브파이터식 연출: 화면 정지+확대, 전체 플래시, 중앙 집중선, 큰 충격파 링
-          if (move.castText) {
-            ultBannerText = move.castText;
-            ultBannerColor = fxColor;
+          let bannerText = move.castText, bannerColor = fxColor;
+          // 스택형 궁극기(꿈1/꿈2 -> 빛 모드)는 지금 몇 번째 사용인지(f.ultStacks)에 따라
+          // 배너 문구/색이 달라진다 - 실제 스택 증가는 active phase에서 일어나므로 여기서는
+          // "이번 사용으로 도달할 스택"을 미리 읽어서 보여준다
+          if (move.type === 'stackTransform') {
+            const stacks = move.stacks || [];
+            const idx = f.ultStacks || 0;
+            if (idx < stacks.length) {
+              bannerText = stacks[idx].castText || bannerText;
+              bannerColor = stacks[idx].color || bannerColor;
+            } else if (move.finalForm) {
+              bannerText = move.finalForm.castText || bannerText;
+              bannerColor = move.finalForm.color || bannerColor;
+            }
+          }
+          if (bannerText) {
+            ultBannerText = bannerText;
+            ultBannerColor = bannerColor;
             ultBannerTimer = 50;
           }
-          triggerFlash(fxColor, 18);
-          spawnImpactLines(STAGE_W / 2, STAGE_H / 2, fxColor, 18);
-          spawnRing(f.x, GROUND_Y - 120, fxColor, 260, 36);
+          triggerFlash(bannerColor, 18);
+          spawnImpactLines(STAGE_W / 2, STAGE_H / 2, bannerColor, 18);
+          spawnRing(f.x, GROUND_Y - 120, bannerColor, 260, 36);
           hitStop = Math.max(hitStop, 14);
           zoom = 1.3;
           shake.time = Math.max(shake.time, 14);
@@ -1231,12 +1301,35 @@ function updateFighter(f, opp) {
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#a8ff3b', 16, 'hit');
       } else if (move.type === 'transform' && !f.effectApplied) {
         f.effectApplied = true;
+        f.transformMove = move;
         f.transformTimer = move.duration;
         f.dmgMult = move.dmgMult || 1;
         f.speedMult = move.speedMult || 1;
         f.atkSpeedMult = move.atkSpeedMult || 1;
+        f.defenseMult = move.defenseMult || 1;
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
-      } else if (!['projectile', 'counter', 'heal', 'aura', 'transform'].includes(move.type) && !f.hasHitThisActive) {
+      } else if (move.type === 'stackTransform' && !f.effectApplied) {
+        // 스택형 궁극기: 즉발 변신이 아니라 쓸 때마다 스택이 1씩 쌓이고(꿈1->꿈2, 아무 효과 없음),
+        // 마지막 스택(3번째 사용)에서만 실제로 move.finalForm 변신이 발동된다
+        f.effectApplied = true;
+        const stacks = move.stacks || [];
+        const nextStack = (f.ultStacks || 0) + 1;
+        if (nextStack > stacks.length && move.finalForm) {
+          const ff = move.finalForm;
+          f.transformMove = ff;
+          f.transformTimer = ff.duration;
+          f.dmgMult = ff.dmgMult || 1;
+          f.speedMult = ff.speedMult || 1;
+          f.atkSpeedMult = ff.atkSpeedMult || 1;
+          f.defenseMult = ff.defenseMult || 1;
+          f.ultStacks = stacks.length + 1;
+          spawnParticles(f.x, GROUND_Y - 120, ff.color || move.color, 24, 'hit');
+        } else {
+          f.ultStacks = nextStack;
+          const s = stacks[nextStack - 1];
+          spawnParticles(f.x, GROUND_Y - 120, (s && s.color) || move.color, 14, 'hit');
+        }
+      } else if (!['projectile', 'counter', 'heal', 'aura', 'transform', 'stackTransform'].includes(move.type) && !f.hasHitThisActive) {
         const dist = Math.abs(opp.x - f.x);
         const facingCorrect = move.ignoreFacing || (opp.x - f.x) * f.actionFacing >= -10;
         if (dist <= move.range && facingCorrect && opp.state !== 'ko') {
@@ -1449,6 +1542,39 @@ function updateHUD() {
   updateSpecialCooldownUI(tcS1El, document.getElementById('mkS1'), p1Specials[0], 'special1');
   updateSpecialCooldownUI(tcS2El, document.getElementById('mkS2'), p1Specials[1], 'special2');
   updateSpecialCooldownUI(tcS3El, document.getElementById('mkS3'), p1Specials[2], 'special3');
+
+  updateUltStackPips(hud.p1UltStacks, p1);
+  updateUltStackPips(hud.p2UltStacks, p2);
+}
+
+// 스택형 궁극기(예: 안형준 꿈1/꿈2 -> 빛 모드)를 가진 캐릭터만, 지금까지 쌓인 스택 수만큼
+// 칸을 채워서 보여준다. 스택형이 아닌 캐릭터는 그냥 숨김.
+function updateUltStackPips(el, f) {
+  const ult = f.data.moves.ultimate;
+  if (ult.type !== 'stackTransform') {
+    el.classList.add('hidden');
+    return;
+  }
+  el.classList.remove('hidden');
+  const stacks = ult.stacks || [];
+  const total = stacks.length + 1; // 마지막 칸 = 최종 변신(빛 모드)
+  const key = f.ultStacks + '/' + total;
+  if (el.dataset.pipState === key) return; // 변화 없으면 DOM 재생성 생략
+  el.dataset.pipState = key;
+  el.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'ultStackPip';
+    const filled = f.ultStacks > i;
+    const isFinal = i === total - 1;
+    if (filled) pip.classList.add(isFinal ? 'final' : 'filled');
+    if (filled && !isFinal && stacks[i] && stacks[i].image) {
+      const img = document.createElement('img');
+      img.src = stacks[i].image + '?v=' + ASSET_VERSION;
+      pip.appendChild(img);
+    }
+    el.appendChild(pip);
+  }
 }
 
 // 필살기 쿨타임을 터치 버튼(원형 게이지+숫자)과 데스크톱 키 안내(초 단위 텍스트) 양쪽에 표시
@@ -1673,8 +1799,20 @@ function resolveFighterSprite(f) {
     const entry = f.data.yoyoForm[f.state] || f.data.yoyoForm.idle;
     if (isUsable(entry && entry.img)) return entry;
   }
-  // 변신형(transform)이든 오라형(aura) 궁극기든, 지속 중이면 전용 이미지 세트로 교체
-  if ((f.transformTimer > 0 || f.auraTimer > 0) && f.data.ultimateForm) {
+  // 변신(transform) 지속 중이면 전용 이미지 세트로 교체. 어떤 이미지 세트를 쓸지는
+  // f.data.ultimateForm 고정이 아니라, 실제로 변신을 시작시킨 move(transformMove)의
+  // visualForm 필드로 결정한다 (기본값은 기존 호환을 위해 'ultimateForm').
+  // 예: 안형준 빛의용사 모드는 visualForm:'lightForm' 으로 별도 이미지 세트를 사용
+  if (f.transformTimer > 0 && f.transformMove) {
+    const formKey = f.transformMove.visualForm || 'ultimateForm';
+    const formSet = f.data[formKey];
+    if (formSet) {
+      const entry = formSet[f.state] || formSet.idle;
+      if (isUsable(entry && entry.img)) return entry;
+    }
+  }
+  // 오라형(aura) 궁극기(변신은 아님) 지속 중이면 ultimateForm 이미지 세트로 교체
+  if (f.auraTimer > 0 && f.data.ultimateForm) {
     const entry = f.data.ultimateForm[f.state] || f.data.ultimateForm.idle;
     if (isUsable(entry && entry.img)) return entry;
   }
