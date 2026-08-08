@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 26;
+const ASSET_VERSION = 27;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -113,6 +113,8 @@ CHARACTERS.forEach(c => {
     }
     // 투사체가 도형이 아니라 실제 사진(오토바이 등)을 쓰는 경우 미리 로드
     if (mv.projectileImage) mv.projectileImg = loadImage(mv.projectileImage);
+    // 토템(피규어 토템 등) 소품 이미지도 미리 로드
+    if (mv.totemImage) mv.totemImg = loadImage(mv.totemImage);
     // 스택형 궁극기(예: 꿈1/꿈2 -> 빛 모드)의 스택별 표시 이미지
     if (mv.stacks) {
       mv.stacks.forEach(s => { if (s.image) s.img = loadImage(s.image); });
@@ -371,6 +373,10 @@ class Fighter {
     this.visualFlip = this.facing;
     // 필살기별 쿨타임(프레임). move.cooldown 이 있는 기술만 게이지와 별개로 관리된다
     this.cooldowns = {};
+    // 입-벌구(맥 필살기3)에 맞으면 여기에 { 기술키: 남은 프레임 } 형태로 봉인이 걸린다
+    this.sealedMoves = {};
+    // 총장 소환(맥 필살기2)으로 불러낸 소환수 - 있는 동안 opp을 향해 스스로 공격한다
+    this.summon = null;
   }
   get isFree() {
     return ['idle','walk','jump','crouch','block'].includes(this.state);
@@ -534,6 +540,9 @@ function isFlying(f) {
 // ----- 액션(기술) 시작 -----
 function tryStartAction(f, key) {
   if (!f.isFree || (!f.isGrounded && !isFlying(f))) return;
+  // 입-벌구에 맞아 봉인된 기술(필살기/궁극기)은 봉인이 풀릴 때까지 아예 시전 불가
+  if ((key === 'special1' || key === 'special2' || key === 'special3' || key === 'ultimate') &&
+      f.sealedMoves && f.sealedMoves[key] > 0) return;
   const moves = f.data.moves;
   let move = null;
   if (key === 'punch1') move = moves.punch1;
@@ -591,6 +600,10 @@ function tickCooldowns(f) {
   for (const k in f.cooldowns) {
     if (f.cooldowns[k] > 0) f.cooldowns[k]--;
   }
+  // 입-벌구로 걸린 봉인도 매 프레임 카운트다운
+  for (const k in f.sealedMoves) {
+    if (f.sealedMoves[k] > 0) f.sealedMoves[k]--;
+  }
 }
 
 // 필살기 게이지는 빨리, 궁극기 게이지는 천천히 찬다
@@ -645,6 +658,11 @@ function applyHit(attacker, defender, move, opts) {
   const blocking = !move.unblockable && defender.guarding && facingCorrect && guardStanceOk;
 
   let dmg = Math.round(move.damage * (attacker.dmgMult || 1) * (defender.defenseMult || 1));
+  // 보스(맥)는 즉사급 대미지(예: 골절기 빛의용사 모드 궁극포)에 그대로 녹지 않도록,
+  // 즉사기 한정으로 보스 최대체력의 25%만 깎이게 캡을 씌운다
+  if (defender.data.id === 'mac' && move.damage >= 999) {
+    dmg = Math.round(defender.data.hp * 0.25);
+  }
   if (blocking) {
     // 방어 중 데미지 완전 무효화(예: 빛의용사 형준 모드) - 기술 자체가 아니라
     // 방어자가 걸고 있는 변신(transformMove)에서 opt-in
@@ -668,6 +686,12 @@ function applyHit(attacker, defender, move, opts) {
 
     defender.hp = Math.max(0, defender.hp - dmg);
     defender.hitFlash = 10;
+    // 피규어 토템: 소유자가 맞을 때마다 토템도 함께 타격받은 것으로 쳐서 내구도를 깎는다
+    // (3번 맞으면 사라짐 - hitsLeft가 0이 되는 순간은 processStatusEffects에서 정리)
+    if (defender.totem && defender.totem.hitsLeft > 0) {
+      defender.totem.hitsLeft--;
+      spawnParticles(defender.totem.x, GROUND_Y - 80, '#ffffff', 10, 'spark');
+    }
     if (!hasArmor) {
       defender.state = 'hitstun';
       // 변신형 궁극기(메카모드/일본모드)로 버프받은 상태에서 맞히면 경직도 더 크게 준다.
@@ -691,6 +715,15 @@ function applyHit(attacker, defender, move, opts) {
     hitStop = opts.big ? 12 : 6;
     zoom = opts.big ? 1.16 : 1.06;
     gainGauge(defender, dmg);
+
+    // 입-벌구(맥 필살기3): 대미지는 없지만 맞으면 상대 필살기/궁극기 중 하나가 20초간 봉인된다
+    if (move.sealOnHit) {
+      const sealKeys = ['special1', 'special2', 'special3', 'ultimate'];
+      const sealKey = sealKeys[Math.floor(Math.random() * sealKeys.length)];
+      defender.sealedMoves = defender.sealedMoves || {};
+      defender.sealedMoves[sealKey] = move.sealDuration || 1200;
+      spawnFloatingText(defender.x, GROUND_Y - 260, '스킬 봉인', move.color || '#a855f7');
+    }
 
     // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
     if ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) && attacker.transformMove && attacker.transformMove.bloodOnHit) {
@@ -803,6 +836,52 @@ function processStatusEffects(f, opp) {
     if (f.yoyoTimer <= 0) {
       f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
       f.transformMove = null;
+    }
+  }
+
+  // 총장 소환: 소환수가 지속시간 동안 스스로 일정 주기로 상대를 공격한다
+  if (f.summon) {
+    const summon = f.summon;
+    summon.timer--;
+    summon.tickTimer--;
+    if (summon.tickTimer <= 0) {
+      summon.tickTimer = summon.move.tickInterval || 40;
+      if (opp.state !== 'ko') {
+        const blocked = isGuardingAgainst(opp, summon.x);
+        const tickDmg = blocked ? Math.max(1, Math.round(summon.move.tickDamage * 0.15)) : summon.move.tickDamage;
+        opp.hp = Math.max(0, opp.hp - tickDmg);
+        opp.hitFlash = 6;
+        spawnParticles(opp.x, GROUND_Y - 120, blocked ? '#3bd6ff' : (summon.move.color || '#fbbf24'), 8, 'spark');
+        gainGauge(f, tickDmg);
+        if (blocked) gainGauge(opp, tickDmg * 1.5);
+        if (opp.hp <= 0 && opp.state !== 'ko') {
+          opp.state = 'ko'; opp.stateTimer = 9999;
+          triggerKO(f);
+        }
+      }
+    }
+    if (summon.timer <= 0) f.summon = null;
+  }
+
+  // 피규어 토템: 지속시간 동안 소유자에게 HP 회복 + 버프를 계속 유지시키고,
+  // 주기적으로 버프 안내 텍스트를 띄운다. 지속시간이 다 되거나 3번 맞으면 사라진다
+  if (f.totem) {
+    const totem = f.totem;
+    totem.timer--;
+    if (totem.fallTimer > 0) totem.fallTimer--;
+    totem.healTimer++;
+    if (totem.healTimer >= (totem.move.totemHealInterval || 60)) {
+      totem.healTimer = 0;
+      f.hp = Math.min(f.data.hp, f.hp + (totem.move.totemHealPerTick || 3));
+    }
+    totem.textTimer++;
+    if (totem.textTimer >= 100) {
+      totem.textTimer = 0;
+      spawnFloatingText(f.x, GROUND_Y - 300, totem.move.totemBuffText || 'HP,이속,공속,방어력 증가', totem.move.color || '#dc2626');
+    }
+    if (totem.timer <= 0 || totem.hitsLeft <= 0) {
+      f.totem = null;
+      f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
     }
   }
 }
@@ -1368,7 +1447,25 @@ function updateFighter(f, opp) {
         f.lungeRemaining--;
       }
 
-      if (move.type === 'heal' && !f.effectApplied) {
+      if (move.type === 'totem' && !f.effectApplied) {
+        // 피규어 토템: 소품(예: 오토바이)이 맥 뒤쪽 하늘에서 떨어져 지속시간 동안 버프를 준다.
+        // 3번 맞으면(hitsLeft) 또는 지속시간이 다 되면 사라지고 버프도 함께 풀린다
+        f.effectApplied = true;
+        f.totem = {
+          move,
+          x: f.x - f.actionFacing * 120,
+          fallTimer: 22,
+          timer: move.totemDuration || 600,
+          hitsLeft: move.totemHits || 3,
+          healTimer: 0,
+          textTimer: 60
+        };
+        f.dmgMult = move.totemDmgMult || 1;
+        f.speedMult = move.totemSpeedMult || 1;
+        f.atkSpeedMult = move.totemAtkSpeedMult || 1;
+        f.defenseMult = move.totemDefenseMult || 1;
+        spawnParticles(f.x - f.actionFacing * 120, GROUND_Y - 40, move.color || '#dc2626', 20, 'hit');
+      } else if (move.type === 'heal' && !f.effectApplied) {
         f.effectApplied = true;
         f.hp = Math.min(f.data.hp, f.hp + move.healAmount);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#ffd166', 12, 'hit');
@@ -1383,6 +1480,23 @@ function updateFighter(f, opp) {
           if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 300, move.groggyText, move.groggyTextColor || '#ff3b6b');
           return;
         }
+      } else if (move.type === 'summon' && !f.effectApplied) {
+        // 총장 소환: 소환수(예: 양주완)를 옆에 불러내 지속시간 동안 스스로 상대를 공격하게 한다.
+        // 소환수 체력은 실제 캐릭터 최대체력의 일부(summonHpRatio)만 - 화면에 초록 체력바로 표시
+        f.effectApplied = true;
+        const summonData = CHARACTERS.find(c => c.id === move.summonId);
+        if (summonData) {
+          const maxHp = Math.max(1, Math.round(summonData.hp * (move.summonHpRatio || 1)));
+          f.summon = {
+            data: summonData, move,
+            hp: maxHp, maxHp,
+            timer: move.summonDuration || 300,
+            tickTimer: move.tickInterval || 40,
+            x: f.x + f.actionFacing * 90,
+            facing: f.actionFacing
+          };
+        }
+        spawnParticles(f.x, GROUND_Y - 120, move.color || '#fbbf24', 20, 'hit');
       } else if (move.type === 'aura' && !f.effectApplied) {
         f.effectApplied = true;
         f.auraTimer = move.duration;
@@ -1646,12 +1760,13 @@ function updateHUD() {
 
   // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
   const p1Specials = p1.data.moves.specials;
+  const isSealed = (key) => !!(p1.sealedMoves && p1.sealedMoves[key] > 0);
   const specialReady = (i) => !p1Specials[i].disabled && p1.specialGauge >= p1Specials[i].gaugeCost &&
-    !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0);
+    !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0) && !isSealed(`special${i + 1}`);
   tcS1El.classList.toggle('ready', specialReady(0));
   tcS2El.classList.toggle('ready', specialReady(1));
   tcS3El.classList.toggle('ready', specialReady(2));
-  tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
+  tcUltEl.classList.toggle('ready', p1.ultGauge >= 100 && !isSealed('ultimate'));
 
   // 빛의용사 형준처럼 "최종 변신" 상태에서 궁극기 버튼이 원래 기술 대신 마무리기(followUp)로
   // 바뀌는 캐릭터는, 그 상태일 때만 버튼 이름/색을 바꿔서 눈에 띄게 알려준다.
@@ -1666,6 +1781,9 @@ function updateHUD() {
     mkUltEl.classList.toggle('superUlt', inFinalForm);
     tcUltEl.textContent = label;
     tcUltEl.classList.toggle('superUlt', inFinalForm);
+    // 입-벌구에 맞아 궁극기가 봉인되면 자물쇠 표시(쿨타임 텍스트 칸이 따로 없어 클래스만 토글)
+    mkUltEl.classList.toggle('sealed', isSealed('ultimate'));
+    tcUltEl.classList.toggle('sealed', isSealed('ultimate'));
   }
 
   // 아직 컨셉이 안 정해져서 막아둔 필살기는 버튼도 흐리게 표시해 "지금은 못 씀"이 보이게 함
@@ -1719,16 +1837,21 @@ function updateSpecialCooldownUI(tcEl, mkEl, move, key) {
   const cd = p1.cooldowns[key] || 0;
   const max = move.cooldown || 0;
   const active = max > 0 && cd > 0;
+  // 입-벌구로 봉인된 상태면 쿨타임 대신 자물쇠 + 남은 봉인 시간을 우선 표시
+  const sealCd = (p1.sealedMoves && p1.sealedMoves[key]) || 0;
+  const sealed = sealCd > 0;
+  tcEl.classList.toggle('sealed', sealed);
+  if (mkEl) mkEl.classList.toggle('sealed', sealed);
   const cdSpan = tcEl.querySelector('.tcCd');
   if (cdSpan) {
     cdSpan.style.setProperty('--cd', active ? Math.ceil((cd / max) * 100) : 0);
-    cdSpan.classList.toggle('cooling', active);
-    cdSpan.textContent = active ? Math.ceil(cd / 60) : '';
+    cdSpan.classList.toggle('cooling', active && !sealed);
+    cdSpan.textContent = sealed ? Math.ceil(sealCd / 60) : (active ? Math.ceil(cd / 60) : '');
   }
   if (mkEl) {
-    mkEl.classList.toggle('cooling', active);
+    mkEl.classList.toggle('cooling', active && !sealed);
     const mkCd = mkEl.querySelector('.mkCd');
-    if (mkCd) mkCd.textContent = active ? `${(cd / 60).toFixed(1)}s` : '';
+    if (mkCd) mkCd.textContent = sealed ? `🔒${Math.ceil(sealCd / 60)}s` : (active ? `${(cd / 60).toFixed(1)}s` : '');
   }
 }
 
@@ -1807,8 +1930,10 @@ function draw() {
   ctx.lineTo(STAGE_W + 20, GROUND_Y);
   ctx.stroke();
 
+  [p1, p2].forEach(f => { if (f.totem) drawTotem(f); });
   drawFighter(p1);
   drawFighter(p2);
+  [p1, p2].forEach(f => { if (f.summon) drawSummon(f); });
   projectiles.forEach(drawProjectile);
   strikes.forEach(drawStrike);
   particles.forEach(drawParticle);
@@ -1842,6 +1967,76 @@ function draw() {
 
   // 스택형 궁극기 회상 사진(꿈1/꿈2 등)은 텍스트 배너와 별개로, 겹쳐서도 함께 보여준다
   if (ultCutsceneTimer > 0) drawUltCutscene(ultCutsceneImg, ultCutsceneColor, ultCutsceneTimer);
+}
+
+// 피규어 토템(맥 필살기1) - 하늘에서 떨어지는 낙하 애니메이션 후 지면에 고정되어
+// 지속시간 내내 은은한 글로우와 함께 서 있는다
+function drawTotem(f) {
+  const totem = f.totem;
+  const move = totem.move;
+  const img = move.totemImg;
+  if (!isUsable(img)) return;
+
+  const w = 190;
+  const h = w * (img.naturalHeight / img.naturalWidth);
+  // 낙하 진행률(0=하늘, 1=착지 완료) - easeOutQuad로 떨어지는 속도가 점점 느려지게
+  const fallP = totem.fallTimer > 0 ? easeOutQuad(1 - totem.fallTimer / 22) : 1;
+  const dropY = lerp(-420, 0, fallP);
+  const groundY = GROUND_Y - 6;
+
+  ctx.save();
+  // 착지 그림자 (낙하 진행률에 비례해 서서히 진해짐)
+  ctx.globalAlpha = 0.4 * fallP;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(totem.x, groundY + 8, w * 0.32, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.translate(totem.x, groundY + dropY);
+  // 활성 상태를 알리는 은은한 글로우
+  ctx.shadowColor = move.color || '#dc2626';
+  ctx.shadowBlur = 22;
+  ctx.drawImage(img, -w / 2, -h, w, h);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// 총장 소환(맥 필살기2) - 소환된 아군이 옆에 서서 상대를 공격하고, 머리 위에
+// 초록 체력바(실제 최대체력의 일부만)로 남은 체력을 보여준다
+function drawSummon(f) {
+  const summon = f.summon;
+  const summonData = summon.data;
+  const poseEntry = summonData.poseSprites && summonData.poseSprites.idle;
+  const img = poseEntry && poseEntry.img;
+  if (!isUsable(img)) return;
+
+  const h = FIGHTER_H * 0.82;
+  const w = fighterWidth(img, h);
+  const flip = summon.facing * (poseEntry.dir || 1);
+
+  ctx.save();
+  ctx.translate(summon.x, GROUND_Y);
+  ctx.scale(flip, 1);
+  ctx.globalAlpha = 0.96;
+  ctx.drawImage(img, -w / 2, -h, w, h);
+  ctx.restore();
+
+  // 머리 위 초록 체력바
+  const barW = 60, barH = 7;
+  const barX = summon.x - barW / 2, barY = GROUND_Y - h - 18;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(barX, barY, barW, barH);
+  const frac = Math.max(0, summon.hp / summon.maxHp);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(barX, barY, barW * frac, barH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barW, barH);
+  ctx.restore();
 }
 
 // 스택형 궁극기의 스택별 사진(꿈1/꿈2 등)을 화면 위쪽 중앙에 액자처럼 잠깐 띄운다

@@ -473,10 +473,12 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/mac_jump.png', dir: -1 },
       crouch: { src: 'assets/characters/mac_crouch.png', dir: -1 },
       hitstun: { src: 'assets/characters/mac_hitstun.png', dir: 1 },
-      // 필살기 전용 사진은 없어서 기존 사진들 중 느낌이 맞는 걸 재사용
+      // 필살기1은 전용 사진이 없어서 기존 사진 중 느낌이 맞는 걸 재사용
       special1: { src: 'assets/characters/mac_punch1.png', dir: -1 },
-      special2: { src: 'assets/characters/mac_crouch.png', dir: -1 },
-      special3: { src: 'assets/characters/mac_kick2.png', dir: 1 }
+      // 총장 소환(마법진 캐스팅 포즈)
+      special2: { src: 'assets/characters/mac_special2_summon.png', dir: -1 },
+      // 입-벌구(발사체를 가리키며 시전하는 포즈)
+      special3: { src: 'assets/characters/mac_special3_seal.png', dir: 1 }
     },
     // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고, 맞아도 대미지가 덜 들어간다(방어력 상승)
     hp: 260,
@@ -488,26 +490,41 @@ const CHARACTERS = [
       kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
       specials: [
         {
-          key: 'special1', name: '원투 러쉬', castText: '원투!', type: 'dash',
-          damage: 16, range: 140,
-          startup: 12, active: 6, recovery: 18,
-          gaugeCost: 35, color: '#dc2626',
-          cooldown: 260
-        },
-        {
-          key: 'special2', name: '니킥 카운터', castText: '들어와', type: 'counter',
-          damage: 0, counterDamage: 28, range: 0,
-          chipHeal: 8, chipCastText: '가드 성공',
-          startup: 10, active: 20, recovery: 20,
-          gaugeCost: 35, color: '#f97316',
-          cooldown: 320
-        },
-        {
-          key: 'special3', name: '돌려차기', castText: '돌려차기!', type: 'burst',
-          damage: 14, range: 160, guardType: 'high',
-          startup: 16, active: 8, recovery: 20,
+          // 피규어 토템 - 소품(오토바이)이 맥 뒤쪽 하늘에서 떨어져 10초간 토템처럼 서 있으며,
+          // 그동안 맥에게만 HP회복 + 공격력/이동속도/공격속도 증가 + 방어력 강화 버프를 준다.
+          // 3번 맞거나 지속시간이 다 되면 사라진다 (main.js의 'totem' 타입 처리 참고)
+          key: 'special1', name: '피규어 토템', castText: '피규어 토템', type: 'totem',
+          damage: 0,
+          totemImage: 'assets/characters/mac_totem_ducati.png',
+          totemDuration: 600, totemHits: 3,
+          totemDmgMult: 1.3, totemSpeedMult: 1.25, totemAtkSpeedMult: 1.2, totemDefenseMult: 0.8,
+          totemHealPerTick: 3, totemHealInterval: 60,
+          totemBuffText: 'HP,이속,공속,방어력 증가',
+          startup: 16, active: 8, recovery: 16,
           gaugeCost: 40, color: '#dc2626',
-          cooldown: 300
+          cooldown: 480
+        },
+        {
+          // 총장(양주완) 소환 - 지속시간 동안 소환수가 상대를 주기적으로 공격한다.
+          // 소환수 체력은 양주완 실제 최대체력의 35%만 (summonHpRatio) - 화면에 초록 체력바로 표시
+          key: 'special2', name: '총장 소환', castText: '총장 소환', type: 'summon',
+          damage: 0,
+          summonId: 'yang', summonHpRatio: 0.35, summonDuration: 320,
+          tickDamage: 5, tickInterval: 40,
+          startup: 22, active: 10, recovery: 20,
+          gaugeCost: 45, color: '#fbbf24',
+          cooldown: 520
+        },
+        {
+          // 입-벌구 - 대미지는 없는 아주 느린 투사체. 맞으면 상대의 필살기/궁극기 중
+          // 하나가 20초(1200프레임)간 봉인된다 (자물쇠 표시, applyHit의 sealOnHit 처리)
+          key: 'special3', name: '입-벌구', castText: '입-벌구', type: 'projectile',
+          damage: 0, unblockable: true,
+          sealOnHit: true, sealDuration: 1200,
+          startup: 18, active: 10, recovery: 22,
+          gaugeCost: 40, color: '#a855f7',
+          projectileShape: 'orb', projectileSpeed: 4, projectileLife: 240,
+          cooldown: 420
         }
       ],
       ultimate: {

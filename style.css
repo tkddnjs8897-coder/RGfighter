@@ -413,6 +413,16 @@ h1 {
 /* 아직 컨셉 미정이라 막아둔 필살기 버튼 - 흐리게 표시 */
 .tcBtn.locked { opacity: 0.35; filter: grayscale(1); }
 
+/* 입-벌구에 맞아 봉인된 기술 버튼 - 자물쇠 배지 표시 */
+.tcBtn.sealed { opacity: 0.5; filter: grayscale(0.5); border-color: #a855f7; }
+.tcBtn.sealed::before {
+  content: '🔒';
+  position: absolute;
+  top: 2px; right: 4px;
+  font-size: 12px;
+  z-index: 2;
+}
+
 .tcBtn.pressed {
   background: rgba(255, 255, 255, 0.4);
   border-color: #fff;
@@ -587,6 +597,18 @@ h1 {
   opacity: 0.4;
   filter: grayscale(1);
   text-decoration: line-through;
+}
+
+/* 입-벌구(맥 필살기3)에 맞아 일시적으로 봉인된 기술 - 자물쇠 표시 + 붉은 테두리로 강조 */
+.moveKey.sealed {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+  border-color: #a855f7;
+  position: relative;
+}
+.moveKey.sealed::before {
+  content: '🔒';
+  margin-right: 4px;
 }
 
 #resultScreen h1 {
