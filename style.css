@@ -494,6 +494,12 @@ h1 {
   border-color: #ffd23b;
 }
 
+.tcUltBtn.superUlt {
+  background: rgba(255, 59, 59, 0.45);
+  border-color: #ff3b3b;
+  animation: superUltPulse 0.8s ease-in-out infinite;
+}
+
 /* 잽/스트레이트/로우킥/하이킥 - 카카오톡 인앱 브라우저처럼 세로 공간이 좁은 환경에서도
    위쪽 필살기 버튼이 화면 밖으로 잘리지 않도록 축소 */
 .tcAtkPad { position: relative; width: 128px; height: 128px; }
@@ -551,6 +557,18 @@ h1 {
 .moveKey.ult {
   border-color: #3bd6ff;
   color: #3bd6ff;
+}
+
+/* 빛의용사 형준처럼 최종 변신 상태에서 궁극기가 즉사기(초궁극기)로 바뀌는 동안만
+   버튼을 빨갛게 강조 - 변신이 풀리면 자동으로 원래 색으로 돌아감 */
+@keyframes superUltPulse {
+  0%, 100% { box-shadow: 0 0 6px 2px rgba(255, 59, 59, 0.7); }
+  50% { box-shadow: 0 0 16px 6px rgba(255, 59, 59, 1); }
+}
+.moveKey.ult.superUlt {
+  border-color: #ff3b3b;
+  color: #ff3b3b;
+  animation: superUltPulse 0.8s ease-in-out infinite;
 }
 
 .moveKey .mkCd {
