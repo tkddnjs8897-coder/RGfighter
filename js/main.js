@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 13;
+const ASSET_VERSION = 14;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -89,6 +89,11 @@ CHARACTERS.forEach(c => {
   if (c.yoyoForm) {
     Object.values(c.yoyoForm).forEach(p => { p.img = loadImage(p.src); });
   }
+  // 필살기/궁극기 중 실제 영상(블랙박스 등) 클립처럼 여러 장을 순서대로 보여주는 연출이 있으면 미리 로드
+  const allMoves = [...c.moves.specials, c.moves.ultimate];
+  allMoves.forEach(mv => {
+    if (mv.videoClip) mv.videoClip.imgs = mv.videoClip.frames.map(src => loadImage(src));
+  });
 });
 
 // ----- 캐릭터 선택 화면 구성 -----
@@ -462,6 +467,8 @@ function tryStartAction(f, key) {
   else if (key === 'special1' || key === 'special2' || key === 'special3') {
     const idx = Number(key.slice(-1)) - 1;
     move = moves.specials[idx];
+    // 아직 컨셉/사진이 확정 안 돼서 막아둔 필살기(예: 안형준 특2/특3)
+    if (move.disabled) return;
     if (f.specialGauge < move.gaugeCost) return;
     if (move.cooldown && f.cooldowns[key] > 0) return;
   } else if (key === 'ultimate') {
@@ -565,7 +572,8 @@ function applyHit(attacker, defender, move, opts) {
       // 변신형 궁극기(메카모드/일본모드)로 버프받은 상태에서 맞히면 경직도 더 크게 준다.
       // (예전 조건은 attacker.state === 'ultimate' 였는데 실제 타격은 punch/kick 상태에서
       // 일어나 절대 참이 될 수 없는 죽은 코드였음)
-      defender.stateTimer = (attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18;
+      // move.stunFrames가 있으면(예: 블랙박스 영상 필살기의 3초 기절) 그 값을 그대로 사용
+      defender.stateTimer = move.stunFrames || ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18);
       const push = attacker.x < defender.x ? 1 : -1;
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
@@ -1046,7 +1054,7 @@ function runAI(f, opp) {
     case 'special': {
       const specials = f.data.moves.specials;
       const options = ['special1', 'special2', 'special3'].filter((k, i) =>
-        f.specialGauge >= specials[i].gaugeCost && !(specials[i].cooldown && f.cooldowns[k] > 0));
+        !specials[i].disabled && f.specialGauge >= specials[i].gaugeCost && !(specials[i].cooldown && f.cooldowns[k] > 0));
       if (options.length) tryStartAction(f, options[Math.floor(Math.random() * options.length)]);
       else { f.walkDir = opp.x > f.x ? 1 : -1; f.x += f.walkDir * MOVE_SPEED * f.speedMult; f.state = 'walk'; }
       break;
@@ -1401,12 +1409,20 @@ function updateHUD() {
 
   // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
   const p1Specials = p1.data.moves.specials;
-  const specialReady = (i) => p1.specialGauge >= p1Specials[i].gaugeCost &&
+  const specialReady = (i) => !p1Specials[i].disabled && p1.specialGauge >= p1Specials[i].gaugeCost &&
     !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0);
   tcS1El.classList.toggle('ready', specialReady(0));
   tcS2El.classList.toggle('ready', specialReady(1));
   tcS3El.classList.toggle('ready', specialReady(2));
   tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
+
+  // 아직 컨셉이 안 정해져서 막아둔 필살기는 버튼도 흐리게 표시해 "지금은 못 씀"이 보이게 함
+  tcS1El.classList.toggle('locked', !!p1Specials[0].disabled);
+  tcS2El.classList.toggle('locked', !!p1Specials[1].disabled);
+  tcS3El.classList.toggle('locked', !!p1Specials[2].disabled);
+  document.getElementById('mkS1').classList.toggle('locked', !!p1Specials[0].disabled);
+  document.getElementById('mkS2').classList.toggle('locked', !!p1Specials[1].disabled);
+  document.getElementById('mkS3').classList.toggle('locked', !!p1Specials[2].disabled);
 
   updateSpecialCooldownUI(tcS1El, document.getElementById('mkS1'), p1Specials[0], 'special1');
   updateSpecialCooldownUI(tcS2El, document.getElementById('mkS2'), p1Specials[1], 'special2');
@@ -1530,6 +1546,11 @@ function draw() {
 
   if (flashTime > 0) drawFlash();
 
+  // 필살기 시전 중 화면에 뜨는 "영상 클립" 연출(예: 블랙박스 영상) - 준비(startup) 구간 내내 재생됨
+  [p1, p2].forEach(f => {
+    if (f.phase === 'startup' && f.actionMove && f.actionMove.videoClip) drawVideoClipOverlay(f);
+  });
+
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
   else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor);
@@ -1571,6 +1592,42 @@ function drawBanner(text, color) {
   ctx.strokeText(text, STAGE_W / 2, STAGE_H / 2 - 40);
   ctx.fillStyle = color;
   ctx.fillText(text, STAGE_W / 2, STAGE_H / 2 - 40);
+  ctx.restore();
+}
+
+// 필살기 시전 중 실제 영상(예: 블랙박스 밈)을 몇 장 순서대로 보여주는 "재생 화면" 연출.
+// startup 구간 진행률에 맞춰 clip.frameDuration 간격으로 다음 프레임으로 넘어간다.
+function drawVideoClipOverlay(f) {
+  const move = f.actionMove;
+  const clip = move.videoClip;
+  const elapsed = Math.max(0, move.startup - f.stateTimer);
+  const frameIdx = Math.min(clip.frames.length - 1, Math.floor(elapsed / clip.frameDuration));
+  const img = clip.imgs && clip.imgs[frameIdx];
+  if (!isUsable(img)) return;
+
+  const boxW = 300, boxH = 200;
+  const boxX = STAGE_W / 2 - boxW / 2;
+  const boxY = 46;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(boxX - 10, boxY - 10, boxW + 20, boxH + 20);
+  ctx.strokeStyle = move.color || '#facc15';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(boxX - 10, boxY - 10, boxW + 20, boxH + 20);
+  ctx.drawImage(img, boxX, boxY, boxW, boxH);
+
+  // REC 표시 깜빡임으로 "영상이 재생 중"인 느낌을 강조
+  if (Math.floor(performance.now() / 400) % 2 === 0) {
+    ctx.fillStyle = '#ff3b3b';
+    ctx.beginPath();
+    ctx.arc(boxX + 14, boxY + 16, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('REC', boxX + 26, boxY + 21);
   ctx.restore();
 }
 

@@ -311,29 +311,44 @@ const CHARACTERS = [
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
       kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 11, guardType: 'low' },
       kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
-      // ----- TODO: 아래 필살기 3개 / 궁극기는 실제 컨셉·사진이 정해지기 전까지의
+      // ----- TODO: 아래 필살기2/3, 궁극기는 실제 컨셉·사진이 정해지기 전까지의
       // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
       specials: [
         {
-          key: 'special1', name: '박치기', castText: '박치기', type: 'dash',
-          damage: 18, range: 140,
-          startup: 12, active: 6, recovery: 18,
-          gaugeCost: 35, color: '#8b5cf6',
-          cooldown: 260
+          // 실제 블랙박스 영상(오토바이 밈)을 시전 중 화면에 그대로 재생하는 연출.
+          // 준비 시간이 2초로 매우 길지만(그동안 무방비), 대신 화면 어디든 확정타 +
+          // 3초라는 압도적인 기절을 준다 - 고위험 고보상형 필살기.
+          key: 'special1', name: '오토바이 밈', castText: '블랙박스 재생', type: 'burst', ignoreFacing: true,
+          damage: 16, range: 999,
+          startup: 120, active: 8, recovery: 24,
+          gaugeCost: 45, color: '#facc15',
+          cooldown: 420,
+          stunFrames: 180,
+          videoClip: {
+            frames: [
+              'assets/characters/hyungjun_clip1.jpg',
+              'assets/characters/hyungjun_clip2.jpg',
+              'assets/characters/hyungjun_clip3.jpg',
+              'assets/characters/hyungjun_clip4.jpg'
+            ],
+            frameDuration: 30
+          }
         },
         {
+          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
           key: 'special2', name: '괴성', castText: '으아아!', type: 'burst', ignoreFacing: true,
           damage: 15, range: 999,
           startup: 20, active: 10, recovery: 22,
           gaugeCost: 40, color: '#c084fc',
-          cooldown: 320
+          cooldown: 320, disabled: true
         },
         {
+          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
           key: 'special3', name: '숨고르기', castText: 'HP회복', type: 'heal',
           healAmount: 18, damage: 0,
           startup: 20, active: 6, recovery: 14,
           gaugeCost: 35, color: '#a78bfa',
-          cooldown: 320
+          cooldown: 320, disabled: true
         }
       ],
       ultimate: {
