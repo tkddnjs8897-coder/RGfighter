@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 27;
+const ASSET_VERSION = 28;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -369,8 +369,12 @@ class Fighter {
     this.visual = { x: 0, y: 0, rot: 0, sx: 1, sy: 1 };
     // 걷기<->대기 전환 등에서 바라보는 방향(facing)의 기준이 바뀌며 좌우가 뚝 끊겨 뒤집히는 것을
     // 막기 위한 값 - 실제 좌우반전 배율을 이 값으로 부드럽게 수렴시켜서 순간적으로 뒤집히지 않고
-    // 살짝 얇아졌다가 돌아서는 것처럼 자연스럽게 전환되게 한다
-    this.visualFlip = this.facing;
+    // 살짝 얇아졌다가 돌아서는 것처럼 자연스럽게 전환되게 한다.
+    // 초기값은 facing만이 아니라 idle 포즈 사진의 dir까지 반영해야 한다 - 안 그러면
+    // (예: 맥처럼) idle 사진 자체가 왼쪽을 보고 찍혀서 dir:-1인 캐릭터는 매치 시작
+    // 첫 몇 프레임 동안 목표 방향과 반대로 시작해 상대를 등지고 서 있는 것처럼 보이는 버그가 있었음
+    const initialDir = (data.poseSprites && data.poseSprites.idle && data.poseSprites.idle.dir) || data.spriteDir || 1;
+    this.visualFlip = this.facing * initialDir;
     // 필살기별 쿨타임(프레임). move.cooldown 이 있는 기술만 게이지와 별개로 관리된다
     this.cooldowns = {};
     // 입-벌구(맥 필살기3)에 맞으면 여기에 { 기술키: 남은 프레임 } 형태로 봉인이 걸린다
@@ -839,19 +843,44 @@ function processStatusEffects(f, opp) {
     }
   }
 
-  // 총장 소환: 소환수가 지속시간 동안 스스로 일정 주기로 상대를 공격한다
+  // 총장 소환: 소환수가 지속시간 동안 스스로 일정 주기로 상대를 공격한다.
+  // 매번 그냥 서서 때리는 게 아니라, 실제 펀치/킥 동작으로 잠깐 전환되고
+  // 가끔은 자기 필살기까지 꺼내 쓰는 것처럼 보이게 한다
   if (f.summon) {
     const summon = f.summon;
     summon.timer--;
     summon.tickTimer--;
+    if (summon.poseTimer > 0) {
+      summon.poseTimer--;
+      if (summon.poseTimer <= 0) summon.pose = 'idle';
+    }
     if (summon.tickTimer <= 0) {
       summon.tickTimer = summon.move.tickInterval || 40;
       if (opp.state !== 'ko') {
+        // 30% 확률로 자기 필살기 중 하나를 꺼내 쓰고, 나머지는 평범한 펀치/킥 콤보
+        const specials = summon.data.moves.specials || [];
+        const useSkill = specials.length && Math.random() < 0.3;
+        let attackKey, attackDmg, attackColor, attackText;
+        if (useSkill) {
+          const sp = specials[Math.floor(Math.random() * specials.length)];
+          attackKey = sp.key;
+          attackDmg = Math.max(1, Math.round((sp.damage || summon.move.tickDamage) * 0.6));
+          attackColor = sp.color;
+          attackText = sp.name;
+        } else {
+          const basics = ['punch1', 'punch2', 'kick1', 'kick2'];
+          attackKey = basics[Math.floor(Math.random() * basics.length)];
+          attackDmg = summon.move.tickDamage;
+          attackColor = summon.move.color;
+        }
+        summon.pose = attackKey;
+        summon.poseTimer = 24;
         const blocked = isGuardingAgainst(opp, summon.x);
-        const tickDmg = blocked ? Math.max(1, Math.round(summon.move.tickDamage * 0.15)) : summon.move.tickDamage;
+        const tickDmg = blocked ? Math.max(1, Math.round(attackDmg * 0.15)) : attackDmg;
         opp.hp = Math.max(0, opp.hp - tickDmg);
         opp.hitFlash = 6;
-        spawnParticles(opp.x, GROUND_Y - 120, blocked ? '#3bd6ff' : (summon.move.color || '#fbbf24'), 8, 'spark');
+        spawnParticles(opp.x, GROUND_Y - 120, blocked ? '#3bd6ff' : (attackColor || '#fbbf24'), 8, 'spark');
+        if (attackText) spawnFloatingText(summon.x, GROUND_Y - 260, attackText, attackColor || '#fbbf24');
         gainGauge(f, tickDmg);
         if (blocked) gainGauge(opp, tickDmg * 1.5);
         if (opp.hp <= 0 && opp.state !== 'ko') {
@@ -1493,7 +1522,9 @@ function updateFighter(f, opp) {
             timer: move.summonDuration || 300,
             tickTimer: move.tickInterval || 40,
             x: f.x + f.actionFacing * 90,
-            facing: f.actionFacing
+            facing: f.actionFacing,
+            // 지금 보여줄 동작(기본은 대기 자세) - 공격할 때마다 실제 펀치/킥/필살기 포즈로 잠깐 전환된다
+            pose: 'idle', poseTimer: 0
           };
         }
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#fbbf24', 20, 'hit');
@@ -2007,7 +2038,9 @@ function drawTotem(f) {
 function drawSummon(f) {
   const summon = f.summon;
   const summonData = summon.data;
-  const poseEntry = summonData.poseSprites && summonData.poseSprites.idle;
+  // 공격 중이면 그 동작(펀치/킥/필살기) 사진을, 아니면 평상시 대기 자세를 사용
+  const poseEntry = (summonData.poseSprites && summonData.poseSprites[summon.pose]) ||
+    (summonData.poseSprites && summonData.poseSprites.idle);
   const img = poseEntry && poseEntry.img;
   if (!isUsable(img)) return;
 
