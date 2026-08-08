@@ -24,11 +24,14 @@ const ctx = canvas.getContext('2d');
 // 창 크기에 맞춰 전체 화면을 축소/확대 (캔버스 해상도는 그대로 유지)
 const stageEl = document.getElementById('stage');
 const IS_TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
+// 예전엔 "필요한 세로 공간"을 780/610 같은 고정값으로 어림짐작했는데, 안형준처럼 궁극기
+// 스택 칸이 추가로 붙는 캐릭터를 고르면 실제 HUD 높이가 그 값보다 커져서 화면 위쪽
+// (체력바 등)이 뷰포트 밖으로 밀려나 안 보이는 버그가 있었음 - 실제 렌더된 콘텐츠 높이를
+// 직접 측정해서 스케일을 계산하도록 수정 (transform은 scrollHeight/scrollWidth에 영향 없음)
 function fitStage() {
-  // 터치 기기는 하단 키 안내 바를 숨기고 HUD도 줄여서 실제 필요한 세로 공간이 작으므로
-  // 그만큼 기준 높이를 낮춰 캔버스(대전 화면)가 더 크게 보이도록 한다
-  const heightRef = IS_TOUCH ? 610 : 780;
-  const scale = Math.min(window.innerWidth / 1020, window.innerHeight / heightRef, 1);
+  const naturalWidth = stageEl.scrollWidth || 1020;
+  const naturalHeight = stageEl.scrollHeight || (IS_TOUCH ? 610 : 780);
+  const scale = Math.min(window.innerWidth / naturalWidth, window.innerHeight / naturalHeight, 1);
   stageEl.style.transform = `scale(${scale})`;
 }
 window.addEventListener('resize', fitStage);
@@ -628,7 +631,14 @@ function applyHit(attacker, defender, move, opts) {
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
     }
-    spawnParticles(defender.x, GROUND_Y - 120, move.color || '#ff5b3b', 14, 'hit');
+    // 빛의용사 형준처럼 타격 이펙트 색이 지정된 변신 중이면(hitEffectColor) 하양+노랑을
+    // 섞어서 화려하게, 아니면 기술 고유 색으로 평소처럼
+    if (attacker.transformMove && attacker.transformMove.hitEffectColor) {
+      spawnParticles(defender.x, GROUND_Y - 120, attacker.transformMove.hitEffectColor, 12, 'hit');
+      spawnParticles(defender.x, GROUND_Y - 120, attacker.transformMove.hitEffectColor2 || attacker.transformMove.hitEffectColor, 12, 'spark');
+    } else {
+      spawnParticles(defender.x, GROUND_Y - 120, move.color || '#ff5b3b', 14, 'hit');
+    }
     shake.time = 10; shake.mag = opts.big ? 12 : 6;
     hitStop = opts.big ? 12 : 6;
     zoom = opts.big ? 1.16 : 1.06;
@@ -1222,6 +1232,12 @@ function updateFighter(f, opp) {
         spawnCastEffect(f, move);
         const fxColor = move.color || f.data.color;
         if (f.state === 'ultimate') {
+          // 이미 빛의용사 형준 모드로 변신해 있는 도중에 궁극기를 또 쓰면, 즉시 재발동(지속시간
+          // 새로고침)되지 않고 꿈1부터 다시 진행하는 것처럼 스택을 초기화한다 (지금 변신 상태는 그대로 유지)
+          if (move.type === 'stackTransform' && move.finalForm &&
+              f.transformTimer > 0 && f.transformMove === move.finalForm) {
+            f.ultStacks = 0;
+          }
           // 궁극기는 킹오브파이터식 연출: 화면 정지+확대, 전체 플래시, 중앙 집중선, 큰 충격파 링
           let bannerText = move.castText, bannerColor = fxColor;
           // 스택형 궁극기(꿈1/꿈2 -> 빛 모드)는 지금 몇 번째 사용인지(f.ultStacks)에 따라
@@ -1314,7 +1330,7 @@ function updateFighter(f, opp) {
           f.phase = null;
           f.actionMove = null;
           f.stateTimer = move.groggyDuration;
-          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 260, move.groggyText, move.groggyTextColor || '#ff3b6b');
+          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 300, move.groggyText, move.groggyTextColor || '#ff3b6b');
           return;
         }
       } else if (move.type === 'aura' && !f.effectApplied) {
@@ -1347,6 +1363,8 @@ function updateFighter(f, opp) {
           f.atkSpeedMult = ff.atkSpeedMult || 1;
           f.defenseMult = ff.defenseMult || 1;
           f.ultStacks = stacks.length + 1;
+          // 변신 순간 체력을 완전히 회복시켜주는 opt-in 효과(예: 빛의용사 형준)
+          if (ff.fullHealOnActivate) f.hp = f.data.hp;
           // 최종 변신 순간: 파티클을 몇 겹으로 쏟아붓고 링을 추가로 한 번 더 터뜨려서
           // 위에서 이미 터진 배너 이펙트와 겹치며 더 화려하게 보이게 한다
           spawnParticles(f.x, GROUND_Y - 140, ff.color || move.color, 30, 'hit');
@@ -1398,7 +1416,7 @@ function updateFighter(f, opp) {
         if (move.groggyDuration) {
           f.state = 'groggy';
           f.stateTimer = move.groggyDuration;
-          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 260, move.groggyText, move.groggyTextColor || '#ff3b6b');
+          if (move.groggyText) spawnFloatingText(f.x, GROUND_Y - 300, move.groggyText, move.groggyTextColor || '#ff3b6b');
         } else {
           f.state = 'idle';
         }

@@ -54,7 +54,8 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/yang_ult_jump.png', dir: 1 },
       crouch: { src: 'assets/characters/yang_ult_crouch.png', dir: 1 }
     },
-    hp: 100,
+    // 라운드가 너무 빨리 끝난다는 피드백으로 전 캐릭터 체력 100 -> 130 상향 (게임 진행을 좀 더 길게)
+    hp: 130,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
@@ -136,7 +137,7 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/gura_ult_jump.png', dir: -1 },
       block: { src: 'assets/characters/gura_ult_block.png', dir: -1 }
     },
-    hp: 100,
+    hp: 130,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 10, active: 5, recovery: 16 },
@@ -218,7 +219,7 @@ const CHARACTERS = [
     },
     // 예전에는 HP/기본기/궁극기 배율까지 세 캐릭터 중 전부 가장 높게 잡혀 있어서
     // 명백히 사기 캐릭터였음 - 다른 두 캐릭터 기준에 맞춰 전반적으로 하향
-    hp: 100,
+    hp: 130,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 8 },
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 13 },
@@ -322,14 +323,16 @@ const CHARACTERS = [
     // walk/jump/crouch/hitstun 전용 사진은 없어서(기본자세+공격/막기 5장만 받음), resolveFighterSprite가
     // 자동으로 idle 사진으로 대체해서 보여준다 (나중에 추가 사진이 오면 그때 채우면 됨)
     lightForm: {
-      idle: { src: 'assets/characters/hyungjun_light_idle.png', dir: 1 },
+      // 기본자세 사진은 다른 공격/막기 사진들과 달리 원본이 왼쪽을 보고 있어서 dir: -1로 보정
+      // (그대로 두면 대기<->공격 전환마다 좌우가 뒤집혀 보이는 버그가 있었음)
+      idle: { src: 'assets/characters/hyungjun_light_idle.png', dir: -1 },
       punch1: { src: 'assets/characters/hyungjun_light_thrust.png', dir: 1 },
       punch2: { src: 'assets/characters/hyungjun_light_swing_a.png', dir: 1 },
       kick1: { src: 'assets/characters/hyungjun_light_sprawl.png', dir: 1 },
       kick2: { src: 'assets/characters/hyungjun_light_swing_b.png', dir: 1 },
       block: { src: 'assets/characters/hyungjun_light_blocks.png', dir: 1 }
     },
-    hp: 100,
+    hp: 130,
     moves: {
       // 기본기(잽/스트레이트/로우킥/하이킥) 수치는 다른 캐릭터들과 동일하게 맞춤
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
@@ -398,10 +401,13 @@ const CHARACTERS = [
         finalForm: {
           // 빛의용사 형준: 날아다니며 싸우는 최종 변신. 공격력/방어력 전부 큰 폭으로 강화되고,
           // 막기에 성공하면 아예 대미지가 들어가지 않는다(카운터). 전용 공격/막기 사진 4장 사용.
+          // 변신 순간 체력을 완전히 회복하고(fullHealOnActivate), 방어력도 더 단단해짐(0.6 -> 0.45)
           name: '빛의용사 형준', castText: '빛의용사 형준', type: 'transform', visualForm: 'lightForm',
           // 데미지 배율 1.8 -> 1.5로 하향 (형준 전반 데미지 너프 피드백 반영)
-          duration: 480, dmgMult: 1.5, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.6,
-          blockNoDamage: true, canFly: true,
+          duration: 480, dmgMult: 1.5, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.45,
+          blockNoDamage: true, canFly: true, fullHealOnActivate: true,
+          // 타격 성공 시 하양/노랑이 섞인 화려한 이펙트가 나오도록
+          hitEffectColor: '#ffffff', hitEffectColor2: '#ffe066',
           color: '#ffe08a'
         }
       }
