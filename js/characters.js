@@ -330,7 +330,9 @@ const CHARACTERS = [
       punch2: { src: 'assets/characters/hyungjun_light_swing_a.png', dir: 1 },
       kick1: { src: 'assets/characters/hyungjun_light_sprawl.png', dir: 1 },
       kick2: { src: 'assets/characters/hyungjun_light_swing_b.png', dir: 1 },
-      block: { src: 'assets/characters/hyungjun_light_blocks.png', dir: 1 }
+      block: { src: 'assets/characters/hyungjun_light_blocks.png', dir: 1 },
+      // 빛의용사 형준 모드 중 궁극기(Space)를 다시 쓰면 나가는 즉사기(궁극포) 전용 시전 자세
+      ultimate: { src: 'assets/characters/hyungjun_light_cannon_pose.png', dir: 1 }
     },
     hp: 130,
     moves: {
@@ -357,14 +359,14 @@ const CHARACTERS = [
         {
           // 힘들어서 잠깐 엎드려 숨고르는 회복기. "낑,,낑" 앓는 소리를 내며 체력 35% 회복.
           // 회복 즉시 잠깐(80프레임≈1.3초) 그로기 상태가 되어 무방비해지는 대가가 있다.
+          // (예전엔 시전 중 맞아도 안 풀리는 armor가 있었는데, 무적 회복기가 너무 후하다는
+          // 피드백으로 제거 - 이제 시전 중 맞으면 다른 필살기처럼 그냥 끊긴다)
           key: 'special2', name: '숨고르기', castText: '낑,,낑', type: 'heal',
           healAmount: 35, damage: 0,
           startup: 18, active: 8, recovery: 16,
           gaugeCost: 35, color: '#ffb703',
           groggyDuration: 80, groggyText: '낑낑...',
-          cooldown: 420,
-          // 엎드려서 낑낑대는 동작 도중엔 맞아도 자세가 안 풀리고 그대로 회복까지 이어간다
-          armor: true
+          cooldown: 420
         },
         {
           // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
@@ -408,7 +410,19 @@ const CHARACTERS = [
           blockNoDamage: true, canFly: true, fullHealOnActivate: true,
           // 타격 성공 시 하양/노랑이 섞인 화려한 이펙트가 나오도록
           hitEffectColor: '#ffffff', hitEffectColor2: '#ffe066',
-          color: '#ffe08a'
+          color: '#ffe08a',
+          // 빛의용사 형준 상태에서 궁극기(Space)를 또 쓰면 나가는 필살의 마무리기.
+          // 필살기1(골드윙 돌진)과 같은 방식 - 시전 자세만 취하고 투사체가 혼자 날아가
+          // 상대를 관통한다. 맞으면 사실상 즉사(데미지 999) + 막기 불가.
+          followUp: {
+            key: 'ultimate', name: '궁극포', castText: '할카스포', type: 'projectile',
+            damage: 999,
+            startup: 20, active: 12, recovery: 24,
+            color: '#3bd6ff',
+            unblockable: true, pierce: true, knockback: 46,
+            projectileShape: 'sprite', projectileImage: 'assets/characters/hyungjun_light_cannon_projectile.png',
+            projectileWidth: 150, projectileSpeed: 18, projectileLife: 70
+          }
         }
       }
     }

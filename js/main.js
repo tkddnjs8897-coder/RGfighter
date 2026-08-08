@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 20;
+const ASSET_VERSION = 21;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -47,6 +47,7 @@ const tcS1El = document.getElementById('tcS1');
 const tcS2El = document.getElementById('tcS2');
 const tcS3El = document.getElementById('tcS3');
 const tcUltEl = document.querySelector('#touchControls .tcUltBtn');
+const mkUltEl = document.getElementById('mkUlt');
 const selectGrid = document.getElementById('selectGrid');
 const mapGrid = document.getElementById('mapGrid');
 const resultText = document.getElementById('resultText');
@@ -115,6 +116,10 @@ CHARACTERS.forEach(c => {
     // 스택형 궁극기(예: 꿈1/꿈2 -> 빛 모드)의 스택별 표시 이미지
     if (mv.stacks) {
       mv.stacks.forEach(s => { if (s.image) s.img = loadImage(s.image); });
+    }
+    // 최종 변신(finalForm) 상태에서만 쓰는 마무리기(followUp)의 투사체 이미지도 미리 로드
+    if (mv.finalForm && mv.finalForm.followUp && mv.finalForm.followUp.projectileImage) {
+      mv.finalForm.followUp.projectileImg = loadImage(mv.finalForm.followUp.projectileImage);
     }
   });
 });
@@ -516,6 +521,12 @@ function tryStartAction(f, key) {
   } else if (key === 'ultimate') {
     if (f.ultGauge < 100) return;
     move = moves.ultimate;
+    // 이미 최종 변신(예: 빛의용사 형준) 상태라면, 스택 궁극기 대신 그 변신의 마무리기
+    // (followUp)를 대신 사용한다 (설정돼 있는 경우만)
+    const finalForm = move.finalForm;
+    if (finalForm && f.transformTimer > 0 && f.transformMove === finalForm && finalForm.followUp) {
+      move = finalForm.followUp;
+    }
   }
   if (!move) return;
 
@@ -1356,6 +1367,11 @@ function updateFighter(f, opp) {
         const nextStack = (f.ultStacks || 0) + 1;
         if (nextStack > stacks.length && move.finalForm) {
           const ff = move.finalForm;
+          // 마운자로/요요현상 등 다른 변신 상태였더라도 무조건 빛의용사 형준으로 전환되게 한다.
+          // 특히 요요현상은 transformTimer가 아니라 별도의 yoyoTimer를 쓰는데, resolveFighterSprite가
+          // yoyoTimer를 최우선으로 체크해서 안 지워주면 내부적으론 변신됐어도 화면엔 계속 요요모드
+          // 모습(hyungjun_yy_*)이 남아있어 "시전이 안 된 것처럼" 보이는 버그가 있었음
+          f.yoyoTimer = 0;
           f.transformMove = ff;
           f.transformTimer = ff.duration;
           f.dmgMult = ff.dmgMult || 1;
@@ -1533,9 +1549,10 @@ function drawFloatingText(ft) {
   ctx.save();
   ctx.globalAlpha = Math.max(0, 1 - p * p);
   ctx.translate(ft.x, ft.y - p * 36);
-  ctx.font = 'bold 22px sans-serif';
+  // 필살기/궁극기 캐스트 텍스트 등이 잘 안 보인다는 피드백으로 폰트 크기 상향(22px -> 30px)
+  ctx.font = 'bold 30px sans-serif';
   ctx.textAlign = 'center';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.strokeStyle = 'rgba(0,0,0,0.65)';
   ctx.strokeText(ft.text, 0, 0);
   ctx.fillStyle = ft.color;
@@ -1584,6 +1601,20 @@ function updateHUD() {
   tcS2El.classList.toggle('ready', specialReady(1));
   tcS3El.classList.toggle('ready', specialReady(2));
   tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
+
+  // 빛의용사 형준처럼 "최종 변신" 상태에서 궁극기 버튼이 원래 기술 대신 마무리기(followUp)로
+  // 바뀌는 캐릭터는, 그 상태일 때만 버튼 이름/색을 바꿔서 눈에 띄게 알려준다.
+  // 변신이 풀리면 자동으로 원래 이름으로 되돌아간다.
+  {
+    const ult = p1.data.moves.ultimate;
+    const finalForm = ult.finalForm;
+    const inFinalForm = !!(finalForm && p1.transformTimer > 0 && p1.transformMove === finalForm && finalForm.followUp);
+    const label = inFinalForm ? '초궁극기' : ult.name;
+    mkUltEl.textContent = `Space ${label}`;
+    mkUltEl.classList.toggle('superUlt', inFinalForm);
+    tcUltEl.textContent = label;
+    tcUltEl.classList.toggle('superUlt', inFinalForm);
+  }
 
   // 아직 컨셉이 안 정해져서 막아둔 필살기는 버튼도 흐리게 표시해 "지금은 못 씀"이 보이게 함
   tcS1El.classList.toggle('locked', !!p1Specials[0].disabled);
@@ -1875,6 +1906,11 @@ function easeInQuad(t) { return t * t; }
 
 function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 
+// 필살기 등 액션 상태는 대기(idle) 사진으로 대충 대체하면 "시전 중인데 그냥 서 있는" 것처럼
+// 보여서 어색하다 - 변신/요요현상 전용 사진이 없을 땐 그 상태의 idle로 대체하는 대신,
+// 아예 poseSprites(평상시 전용 사진)로 폴백하도록 예외 처리하는 상태 목록
+const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun'];
+
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
@@ -1886,8 +1922,12 @@ function resolveFighterSprite(f) {
   }
   // 요요현상(2단계 부작용) 지속 중이면 전용 이미지 세트를 최우선으로 사용
   if (f.yoyoTimer > 0 && f.data.yoyoForm) {
-    const entry = f.data.yoyoForm[f.state] || f.data.yoyoForm.idle;
-    if (isUsable(entry && entry.img)) return entry;
+    const formSet = f.data.yoyoForm;
+    const hasOwn = !!formSet[f.state];
+    if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
+      const entry = formSet[f.state] || formSet.idle;
+      if (isUsable(entry && entry.img)) return entry;
+    }
   }
   // 변신(transform) 지속 중이면 전용 이미지 세트로 교체. 어떤 이미지 세트를 쓸지는
   // f.data.ultimateForm 고정이 아니라, 실제로 변신을 시작시킨 move(transformMove)의
@@ -1897,14 +1937,21 @@ function resolveFighterSprite(f) {
     const formKey = f.transformMove.visualForm || 'ultimateForm';
     const formSet = f.data[formKey];
     if (formSet) {
-      const entry = formSet[f.state] || formSet.idle;
-      if (isUsable(entry && entry.img)) return entry;
+      const hasOwn = !!formSet[f.state];
+      if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
+        const entry = formSet[f.state] || formSet.idle;
+        if (isUsable(entry && entry.img)) return entry;
+      }
     }
   }
   // 오라형(aura) 궁극기(변신은 아님) 지속 중이면 ultimateForm 이미지 세트로 교체
   if (f.auraTimer > 0 && f.data.ultimateForm) {
-    const entry = f.data.ultimateForm[f.state] || f.data.ultimateForm.idle;
-    if (isUsable(entry && entry.img)) return entry;
+    const formSet = f.data.ultimateForm;
+    const hasOwn = !!formSet[f.state];
+    if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
+      const entry = formSet[f.state] || formSet.idle;
+      if (isUsable(entry && entry.img)) return entry;
+    }
   }
   const poseEntry = f.data.poseSprites && f.data.poseSprites[f.state];
   if (isUsable(poseEntry && poseEntry.img)) return poseEntry;
