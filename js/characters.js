@@ -272,8 +272,11 @@ const CHARACTERS = [
     sprite: 'assets/characters/hyungjun_block.png',
     portrait: 'assets/characters/hyungjun_portrait.jpg',
     portraitCropTop: true,
-    // 동작 사진들이 전부 오른쪽을 보고 있는 구도라 기본 방향(오른쪽)과 일치, 보정 불필요
+    // 동작 사진들이 전부 오른쪽을 보고 있는 구도라 기본 방향(오른쪽)과 일치, 보정 불필요.
+    // idle/walk 전용 격투자세 사진은 왼쪽을 보는 구도라 dir: -1
     poseSprites: {
+      idle: { src: 'assets/characters/hyungjun_idle.png', dir: -1 },
+      walk: { src: 'assets/characters/hyungjun_idle.png', dir: -1 },
       punch1: { src: 'assets/characters/hyungjun_punch1.png', dir: 1 },
       punch2: { src: 'assets/characters/hyungjun_punch2.png', dir: 1 },
       kick1: { src: 'assets/characters/hyungjun_kick1.png', dir: -1 },
@@ -294,9 +297,9 @@ const CHARACTERS = [
       block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 }
     },
     // 마운자로 모드가 끝난 뒤 이어지는 요요현상(10초) 동안 이 이미지들로 교체된다.
-    // 전용 idle/block 사진이 없어서 자세가 제일 무난한 punch1 사진으로 대체
+    // 전용 block 사진은 없어서 그쪽만 punch1 사진으로 대체
     yoyoForm: {
-      idle: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
+      idle: { src: 'assets/characters/hyungjun_yy_idle.png', dir: -1 },
       punch1: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
       punch2: { src: 'assets/characters/hyungjun_yy_punch2.png', dir: 1 },
       kick1: { src: 'assets/characters/hyungjun_yy_kick1.png', dir: 1 },
