@@ -15,7 +15,8 @@ const FLY_MAX_HEIGHT = 190;
 const FIGHTER_W = 160;
 const FIGHTER_H = 240;
 const MIN_GAP = 130;
-const ROUND_TIME = 60;
+// 60초 -> 90초로 연장 (형준이 궁극기 3스택을 다 채우기 전에 라운드가 끝나버린다는 피드백)
+const ROUND_TIME = 90;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -359,9 +360,6 @@ let introPhase = null; // 'ready' -> 'go' -> null(전투 시작)
 let introTimer = 0;
 let flashTime = 0, flashColor = '#fff';
 let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff';
-// 스택형 궁극기(꿈1/꿈2 등)의 스택을 쌓을 때, 그 스택에 연결된 사진을 화면 중앙 위쪽에
-// 잠깐 크게 띄워서 보여주는 연출용 상태
-let ultCutsceneImg = null, ultCutsceneTimer = 0, ultCutsceneColor = '#fff';
 
 // 상태 전환(공격류) 목록 - 판정 로직과 렌더 스무딩 강도 판단에 공용으로 사용
 const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
@@ -980,7 +978,6 @@ function update() {
   zoom += (1 - zoom) * 0.18;
   if (flashTime > 0) flashTime--;
   if (ultBannerTimer > 0) ultBannerTimer--;
-  if (ultCutsceneTimer > 0) ultCutsceneTimer--;
 
   if (!matchOver) {
     p1.specialGauge = Math.min(100, p1.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
@@ -1331,15 +1328,11 @@ function updateFighter(f, opp) {
           f.ultStacks = stacks.length + 1;
           spawnParticles(f.x, GROUND_Y - 120, ff.color || move.color, 24, 'hit');
         } else {
+          // 꿈1/꿈2는 그렇게 "변신"하는 것처럼 잠깐 이펙트만 나오고 아무 효과 없이 바로 풀린다
+          // (사진을 따로 화면에 띄우지 않음 - HUD 스택 칸에서만 확인 가능)
           f.ultStacks = nextStack;
           const s = stacks[nextStack - 1];
           spawnParticles(f.x, GROUND_Y - 120, (s && s.color) || move.color, 14, 'hit');
-          // 이 스택에 연결된 사진(꿈1/꿈2 등)을 화면에 잠깐 크게 띄워서 보여준다
-          if (s && s.img) {
-            ultCutsceneImg = s.img;
-            ultCutsceneColor = s.color || move.color || '#fff';
-            ultCutsceneTimer = 100;
-          }
         }
       } else if (!['projectile', 'counter', 'heal', 'aura', 'transform', 'stackTransform'].includes(move.type) && !f.hasHitThisActive) {
         const dist = Math.abs(opp.x - f.x);
@@ -1714,42 +1707,6 @@ function draw() {
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
   else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor);
-
-  // 스택형 궁극기 회상 사진(꿈1/꿈2 등)은 텍스트 배너와 별개로, 겹쳐서도 함께 보여준다
-  if (ultCutsceneTimer > 0) drawUltCutscene(ultCutsceneImg, ultCutsceneColor, ultCutsceneTimer);
-}
-
-// 스택형 궁극기의 스택별 사진(꿈1/꿈2 등)을 화면 위쪽 중앙에 액자처럼 잠깐 띄운다
-function drawUltCutscene(img, color, timer) {
-  if (!isUsable(img)) return;
-  // 캐스트 텍스트 배너(화면 중앙 부근)와 안 겹치도록 위쪽에 작게 띄운다
-  const maxW = 200, maxH = 170;
-  const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
-  const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-  const boxX = STAGE_W / 2 - w / 2, boxY = 20;
-
-  // 등장/퇴장 시 살짝 페이드 + 팝인 되도록 (총 100프레임 중 앞뒤 16프레임 구간)
-  const fadeIn = Math.min(1, (100 - timer) / 16);
-  const fadeOut = Math.min(1, timer / 16);
-  const alpha = Math.min(fadeIn, fadeOut);
-  const pop = 0.9 + 0.1 * fadeIn;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(boxX + w / 2, boxY + h / 2);
-  ctx.scale(pop, pop);
-  ctx.translate(-(boxX + w / 2), -(boxY + h / 2));
-
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.fillRect(boxX - 10, boxY - 10, w + 20, h + 20);
-  ctx.shadowColor = color || '#fff';
-  ctx.shadowBlur = 20;
-  ctx.strokeStyle = color || '#fff';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(boxX - 10, boxY - 10, w + 20, h + 20);
-  ctx.shadowBlur = 0;
-  ctx.drawImage(img, boxX, boxY, w, h);
-  ctx.restore();
 }
 
 // 궁극기 지속 중 화면 가장자리를 감싸는 테마색 비네트
@@ -2036,6 +1993,17 @@ function drawFighter(f) {
       const mv = f.actionMove;
       const mvType = mv ? mv.type : null;
       glow = (mv && mv.color) || f.data.color;
+
+      // 안형준 숨고르기(필살기2): 엎드린 채 낑낑대며 바닥을 비비는 몸부림 - 빠른 좌우 흔들림 + 들썩임
+      if (f.state === 'special2' && f.data.id === 'hyungjun') {
+        const wiggle = Math.sin(t * 30) * 4;
+        const bob = Math.abs(Math.sin(t * 16)) * 2;
+        offsetX = wiggle;
+        offsetY = -bob;
+        rotate = Math.sin(t * 30) * 3 * Math.PI / 180;
+        scaleX = 1 + Math.sin(t * 22) * 0.02;
+        break;
+      }
 
       // 보험사기: 경광등처럼 빨강/파랑이 빠르게 번갈아 번쩍이는 연출
       if (f.data.id === 'gura' && mv && mv.key === 'special3') {

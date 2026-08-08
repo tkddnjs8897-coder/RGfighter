@@ -290,7 +290,10 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/hyungjun_hitstun.png', dir: -1 },
       special1: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 },
-      special2: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 }
+      special2: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 },
+      // 전용 그로기(숨고르기 직후 무방비 상태) 사진이 없으면 기본 스프라이트(방어 자세 사진)로
+      // 대체돼서 그로기 중인데 막기 자세로 보이는 문제가 있었음 - 엎드린 회복 사진을 그대로 재사용
+      groggy: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 }
     },
     // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
     ultimateForm: {
@@ -355,7 +358,9 @@ const CHARACTERS = [
           startup: 18, active: 8, recovery: 16,
           gaugeCost: 35, color: '#ffb703',
           groggyDuration: 80, groggyText: '헉헉...',
-          cooldown: 420
+          cooldown: 420,
+          // 엎드려서 낑낑대는 동작 도중엔 맞아도 자세가 안 풀리고 그대로 회복까지 이어간다
+          armor: true
         },
         {
           // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
