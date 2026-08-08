@@ -318,11 +318,12 @@ const CHARACTERS = [
           // 실제 블랙박스 영상(오토바이 밈)을 시전 중 화면에 그대로 재생하는 연출.
           // 준비 시간이 2초로 매우 길지만(그동안 무방비), 대신 화면 어디든 확정타 +
           // 3초라는 압도적인 기절을 준다 - 고위험 고보상형 필살기.
+          // 일단 보류 - disabled로 막아둠 (코드/에셋은 그대로 유지, 나중에 다시 켤 수 있음)
           key: 'special1', name: '오토바이 밈', castText: '블랙박스 재생', type: 'burst', ignoreFacing: true,
           damage: 16, range: 999,
           startup: 120, active: 8, recovery: 24,
           gaugeCost: 45, color: '#facc15',
-          cooldown: 420,
+          cooldown: 420, disabled: true,
           stunFrames: 180,
           videoClip: {
             frames: [
