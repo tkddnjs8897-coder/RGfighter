@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 14;
+const ASSET_VERSION = 16;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -93,6 +93,10 @@ CHARACTERS.forEach(c => {
   const allMoves = [...c.moves.specials, c.moves.ultimate];
   allMoves.forEach(mv => {
     if (mv.videoClip) mv.videoClip.imgs = mv.videoClip.frames.map(src => loadImage(src));
+    // startup/active/recovery마다 다른 사진을 쓰는 전용 연출(예: 오토바이 소환->탑승 돌진)
+    if (mv.poseByPhase) {
+      Object.values(mv.poseByPhase).forEach(p => { p.img = loadImage(p.src); });
+    }
   });
 });
 
@@ -508,9 +512,10 @@ function tickCooldowns(f) {
 // 필살기/궁극기가 너무 자주 터져서 전투 템포가 정신없다는 피드백을 반영해 살짝 낮춤
 // (그래도 라운드 안에 한 번은 쓸 수 있도록 최소 보장은 유지)
 const SPECIAL_GAUGE_RATE = 2.4;
-const ULT_GAUGE_RATE = 0.8;
+// 궁극기가 너무 자주 나온다는 피드백으로 하향 (0.8 -> 0.5, 패시브도 0.02 -> 0.012)
+const ULT_GAUGE_RATE = 0.5;
 const PASSIVE_SPECIAL_GAUGE_PER_FRAME = 0.03;
-const PASSIVE_ULT_GAUGE_PER_FRAME = 0.02;
+const PASSIVE_ULT_GAUGE_PER_FRAME = 0.012;
 function gainGauge(f, amount) {
   f.specialGauge = Math.min(100, f.specialGauge + amount * SPECIAL_GAUGE_RATE);
   f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE);
@@ -1640,6 +1645,12 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
+  // 필살기 자체에 phase별(시전/타격/후딜) 전용 사진이 지정돼 있으면(예: 오토바이 소환->탑승 돌진)
+  // 다른 무엇보다 최우선으로 사용
+  if (f.actionMove && f.actionMove.poseByPhase && f.phase) {
+    const entry = f.actionMove.poseByPhase[f.phase];
+    if (isUsable(entry && entry.img)) return entry;
+  }
   // 요요현상(2단계 부작용) 지속 중이면 전용 이미지 세트를 최우선으로 사용
   if (f.yoyoTimer > 0 && f.data.yoyoForm) {
     const entry = f.data.yoyoForm[f.state] || f.data.yoyoForm.idle;
