@@ -361,6 +361,9 @@ h1 {
 }
 .tcCd.cooling { opacity: 1; }
 
+/* 아직 컨셉 미정이라 막아둔 필살기 버튼 - 흐리게 표시 */
+.tcBtn.locked { opacity: 0.35; filter: grayscale(1); }
+
 .tcBtn.pressed {
   background: rgba(255, 255, 255, 0.4);
   border-color: #fff;
@@ -510,6 +513,13 @@ h1 {
 .moveKey.cooling {
   border-color: #ff8b3b;
   opacity: 0.7;
+}
+
+/* 아직 컨셉 미정이라 막아둔 필살기 - 흐리게 + 취소선 */
+.moveKey.locked {
+  opacity: 0.4;
+  filter: grayscale(1);
+  text-decoration: line-through;
 }
 
 #resultScreen h1 {

@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 10;
+const ASSET_VERSION = 14;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -86,6 +86,14 @@ CHARACTERS.forEach(c => {
   if (c.ultimateForm) {
     Object.values(c.ultimateForm).forEach(p => { p.img = loadImage(p.src); });
   }
+  if (c.yoyoForm) {
+    Object.values(c.yoyoForm).forEach(p => { p.img = loadImage(p.src); });
+  }
+  // 필살기/궁극기 중 실제 영상(블랙박스 등) 클립처럼 여러 장을 순서대로 보여주는 연출이 있으면 미리 로드
+  const allMoves = [...c.moves.specials, c.moves.ultimate];
+  allMoves.forEach(mv => {
+    if (mv.videoClip) mv.videoClip.imgs = mv.videoClip.frames.map(src => loadImage(src));
+  });
 });
 
 // ----- 캐릭터 선택 화면 구성 -----
@@ -135,9 +143,7 @@ selectGrid.appendChild(buildRandomCard(() => {
 }));
 
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
-const COMING_SOON_CHARACTERS = [
-  { name: '골절기', portrait: 'assets/characters/hyungjun_portrait.jpg' }
-];
+const COMING_SOON_CHARACTERS = [];
 COMING_SOON_CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard locked';
@@ -289,11 +295,14 @@ class Fighter {
     this.aiIntent = null;
     this.speedMult = 1;
     this.dmgMult = 1;
+    this.atkSpeedMult = 1;
     this.poison = null;
     this.auraTimer = 0;
     this.auraMove = null;
     this.auraTick = 0;
     this.transformTimer = 0;
+    // 변신 궁극기가 끝난 뒤 이어서 발동되는 2단계 부작용(예: 요요현상) 지속시간
+    this.yoyoTimer = 0;
     this.effectApplied = false;
     this.trail = [];
     this.lungeRemaining = 0;
@@ -441,6 +450,11 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
+// 공격속도 버프(atkSpeedMult)가 걸려있으면 startup/active/recovery 프레임 수를 그만큼 단축시킨다
+function scaledFrames(f, frames) {
+  return Math.max(1, Math.round(frames / (f.atkSpeedMult || 1)));
+}
+
 // ----- 액션(기술) 시작 -----
 function tryStartAction(f, key) {
   if (!f.isFree || !f.isGrounded) return;
@@ -453,6 +467,8 @@ function tryStartAction(f, key) {
   else if (key === 'special1' || key === 'special2' || key === 'special3') {
     const idx = Number(key.slice(-1)) - 1;
     move = moves.specials[idx];
+    // 아직 컨셉/사진이 확정 안 돼서 막아둔 필살기(예: 안형준 특2/특3)
+    if (move.disabled) return;
     if (f.specialGauge < move.gaugeCost) return;
     if (move.cooldown && f.cooldowns[key] > 0) return;
   } else if (key === 'ultimate') {
@@ -470,7 +486,7 @@ function tryStartAction(f, key) {
   f.state = key;
   f.actionMove = move;
   f.phase = 'startup';
-  f.stateTimer = move.startup;
+  f.stateTimer = scaledFrames(f, move.startup);
   f.hasHitThisActive = false;
   f.hasCountered = false;
   f.actionFacing = f.facing;
@@ -546,7 +562,7 @@ function applyHit(attacker, defender, move, opts) {
     gainGauge(defender, dmg * 1.5);
   } else {
     // 하이퍼 아머: 변신 궁극기 중 이미 공격 판정에 들어가 있으면 맞아도 경직/넉백 없이 공격을 이어간다
-    const hasArmor = defender.transformTimer > 0 && defender.data.moves.ultimate.hyperArmor &&
+    const hasArmor = (defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.data.moves.ultimate.hyperArmor &&
       ACTION_STATES.includes(defender.state);
 
     defender.hp = Math.max(0, defender.hp - dmg);
@@ -556,7 +572,8 @@ function applyHit(attacker, defender, move, opts) {
       // 변신형 궁극기(메카모드/일본모드)로 버프받은 상태에서 맞히면 경직도 더 크게 준다.
       // (예전 조건은 attacker.state === 'ultimate' 였는데 실제 타격은 punch/kick 상태에서
       // 일어나 절대 참이 될 수 없는 죽은 코드였음)
-      defender.stateTimer = attacker.transformTimer > 0 ? 34 : 18;
+      // move.stunFrames가 있으면(예: 블랙박스 영상 필살기의 3초 기절) 그 값을 그대로 사용
+      defender.stateTimer = move.stunFrames || ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18);
       const push = attacker.x < defender.x ? 1 : -1;
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
@@ -568,7 +585,7 @@ function applyHit(attacker, defender, move, opts) {
     gainGauge(defender, dmg);
 
     // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
-    if (attacker.transformTimer > 0 && attacker.data.moves.ultimate.bloodOnHit) {
+    if ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) && attacker.data.moves.ultimate.bloodOnHit) {
       spawnBloodEffect(defender.x, GROUND_Y - 120);
       shake.time = Math.max(shake.time, 14);
       shake.mag = Math.max(shake.mag, opts.big ? 16 : 10);
@@ -648,7 +665,28 @@ function processStatusEffects(f, opp) {
   if (f.transformTimer > 0) {
     f.transformTimer--;
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
-    if (f.transformTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; }
+    if (f.transformTimer <= 0) {
+      const yoyo = f.data.moves.ultimate.yoyo;
+      if (yoyo) {
+        // 변신이 끝나면 바로 원상복귀하지 않고, 부작용(요요현상) 단계로 이어진다
+        f.yoyoTimer = yoyo.duration;
+        f.dmgMult = yoyo.dmgMult || 1;
+        f.speedMult = yoyo.speedMult || 1;
+        f.atkSpeedMult = yoyo.atkSpeedMult || 1;
+        spawnFloatingText(f.x, GROUND_Y - 260, yoyo.text || '요요현상...', yoyo.color || '#e07b1a');
+        spawnParticles(f.x, GROUND_Y - 120, yoyo.color || '#e07b1a', 18, 'hit');
+        shake.time = Math.max(shake.time, 10); shake.mag = Math.max(shake.mag, 6);
+      } else {
+        f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1;
+      }
+    }
+  }
+
+  if (f.yoyoTimer > 0) {
+    f.yoyoTimer--;
+    const yoyoColor = (f.data.moves.ultimate.yoyo && f.data.moves.ultimate.yoyo.color) || '#e07b1a';
+    if (Math.random() < 0.25) spawnParticles(f.x, GROUND_Y - 10, yoyoColor, 1, 'spark');
+    if (f.yoyoTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; }
   }
 }
 
@@ -1016,7 +1054,7 @@ function runAI(f, opp) {
     case 'special': {
       const specials = f.data.moves.specials;
       const options = ['special1', 'special2', 'special3'].filter((k, i) =>
-        f.specialGauge >= specials[i].gaugeCost && !(specials[i].cooldown && f.cooldowns[k] > 0));
+        !specials[i].disabled && f.specialGauge >= specials[i].gaugeCost && !(specials[i].cooldown && f.cooldowns[k] > 0));
       if (options.length) tryStartAction(f, options[Math.floor(Math.random() * options.length)]);
       else { f.walkDir = opp.x > f.x ? 1 : -1; f.x += f.walkDir * MOVE_SPEED * f.speedMult; f.state = 'walk'; }
       break;
@@ -1076,7 +1114,7 @@ function updateFighter(f, opp) {
 
     if (f.phase === 'startup' && f.stateTimer <= 0) {
       f.phase = 'active';
-      f.stateTimer = move.active;
+      f.stateTimer = scaledFrames(f, move.active);
       f.hasHitThisActive = false;
       f.effectApplied = false;
 
@@ -1177,6 +1215,7 @@ function updateFighter(f, opp) {
         f.transformTimer = move.duration;
         f.dmgMult = move.dmgMult || 1;
         f.speedMult = move.speedMult || 1;
+        f.atkSpeedMult = move.atkSpeedMult || 1;
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
       } else if (!['projectile', 'counter', 'heal', 'aura', 'transform'].includes(move.type) && !f.hasHitThisActive) {
         const dist = Math.abs(opp.x - f.x);
@@ -1195,12 +1234,12 @@ function updateFighter(f, opp) {
           spawnFloatingText(f.x, GROUND_Y - 220, move.chipCastText || '합의금 챙김', '#9ad24a');
           spawnParticles(f.x, GROUND_Y - 120, '#9ad24a', 8, 'hit');
         }
+        f.phase = 'recovery';
+        f.stateTimer = scaledFrames(f, move.recovery);
         if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {
           f.dashReturnFromX = f.x;
-          f.dashReturnTotal = move.recovery;
+          f.dashReturnTotal = f.stateTimer;
         }
-        f.phase = 'recovery';
-        f.stateTimer = move.recovery;
       }
     } else if (f.phase === 'recovery') {
       if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {
@@ -1370,12 +1409,20 @@ function updateHUD() {
 
   // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
   const p1Specials = p1.data.moves.specials;
-  const specialReady = (i) => p1.specialGauge >= p1Specials[i].gaugeCost &&
+  const specialReady = (i) => !p1Specials[i].disabled && p1.specialGauge >= p1Specials[i].gaugeCost &&
     !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0);
   tcS1El.classList.toggle('ready', specialReady(0));
   tcS2El.classList.toggle('ready', specialReady(1));
   tcS3El.classList.toggle('ready', specialReady(2));
   tcUltEl.classList.toggle('ready', p1.ultGauge >= 100);
+
+  // 아직 컨셉이 안 정해져서 막아둔 필살기는 버튼도 흐리게 표시해 "지금은 못 씀"이 보이게 함
+  tcS1El.classList.toggle('locked', !!p1Specials[0].disabled);
+  tcS2El.classList.toggle('locked', !!p1Specials[1].disabled);
+  tcS3El.classList.toggle('locked', !!p1Specials[2].disabled);
+  document.getElementById('mkS1').classList.toggle('locked', !!p1Specials[0].disabled);
+  document.getElementById('mkS2').classList.toggle('locked', !!p1Specials[1].disabled);
+  document.getElementById('mkS3').classList.toggle('locked', !!p1Specials[2].disabled);
 
   updateSpecialCooldownUI(tcS1El, document.getElementById('mkS1'), p1Specials[0], 'special1');
   updateSpecialCooldownUI(tcS2El, document.getElementById('mkS2'), p1Specials[1], 'special2');
@@ -1489,13 +1536,20 @@ function draw() {
 
   // 궁극기 지속 중인 쪽이 있으면 화면 가장자리에 테마색 비네트를 살짝 깔아
   // "지금 궁극기 상태다"가 카메라 흔들림과 무관하게 항상 또렷이 보이게 한다
-  const ultActiveFighter = [p1, p2].find(f => f.auraTimer > 0 || f.transformTimer > 0);
+  const ultActiveFighter = [p1, p2].find(f => f.auraTimer > 0 || f.transformTimer > 0 || f.yoyoTimer > 0);
   if (ultActiveFighter) {
-    const vColor = (ultActiveFighter.auraMove && ultActiveFighter.auraMove.color) || '#2b6fd6';
+    const yoyo = ultActiveFighter.data.moves.ultimate.yoyo;
+    const vColor = (ultActiveFighter.auraMove && ultActiveFighter.auraMove.color) ||
+      (ultActiveFighter.yoyoTimer > 0 && yoyo && yoyo.color) || '#2b6fd6';
     drawVignette(vColor);
   }
 
   if (flashTime > 0) drawFlash();
+
+  // 필살기 시전 중 화면에 뜨는 "영상 클립" 연출(예: 블랙박스 영상) - 준비(startup) 구간 내내 재생됨
+  [p1, p2].forEach(f => {
+    if (f.phase === 'startup' && f.actionMove && f.actionMove.videoClip) drawVideoClipOverlay(f);
+  });
 
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
@@ -1541,6 +1595,42 @@ function drawBanner(text, color) {
   ctx.restore();
 }
 
+// 필살기 시전 중 실제 영상(예: 블랙박스 밈)을 몇 장 순서대로 보여주는 "재생 화면" 연출.
+// startup 구간 진행률에 맞춰 clip.frameDuration 간격으로 다음 프레임으로 넘어간다.
+function drawVideoClipOverlay(f) {
+  const move = f.actionMove;
+  const clip = move.videoClip;
+  const elapsed = Math.max(0, move.startup - f.stateTimer);
+  const frameIdx = Math.min(clip.frames.length - 1, Math.floor(elapsed / clip.frameDuration));
+  const img = clip.imgs && clip.imgs[frameIdx];
+  if (!isUsable(img)) return;
+
+  const boxW = 300, boxH = 200;
+  const boxX = STAGE_W / 2 - boxW / 2;
+  const boxY = 46;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(boxX - 10, boxY - 10, boxW + 20, boxH + 20);
+  ctx.strokeStyle = move.color || '#facc15';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(boxX - 10, boxY - 10, boxW + 20, boxH + 20);
+  ctx.drawImage(img, boxX, boxY, boxW, boxH);
+
+  // REC 표시 깜빡임으로 "영상이 재생 중"인 느낌을 강조
+  if (Math.floor(performance.now() / 400) % 2 === 0) {
+    ctx.fillStyle = '#ff3b3b';
+    ctx.beginPath();
+    ctx.arc(boxX + 14, boxY + 16, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('REC', boxX + 26, boxY + 21);
+  ctx.restore();
+}
+
 function lerp(a, b, t) { return a + (b - a) * t; }
 function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
 function easeInQuad(t) { return t * t; }
@@ -1550,6 +1640,11 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
+  // 요요현상(2단계 부작용) 지속 중이면 전용 이미지 세트를 최우선으로 사용
+  if (f.yoyoTimer > 0 && f.data.yoyoForm) {
+    const entry = f.data.yoyoForm[f.state] || f.data.yoyoForm.idle;
+    if (isUsable(entry && entry.img)) return entry;
+  }
   // 변신형(transform)이든 오라형(aura) 궁극기든, 지속 중이면 전용 이미지 세트로 교체
   if ((f.transformTimer > 0 || f.auraTimer > 0) && f.data.ultimateForm) {
     const entry = f.data.ultimateForm[f.state] || f.data.ultimateForm.idle;
@@ -1785,9 +1880,15 @@ function drawFighter(f) {
     scaleX *= 1 + 0.12 * lp;
   }
 
-  // 지속효과(오라/변신)는 상태와 무관하게 항상 표시
+  // 지속효과(오라/변신/요요현상)는 상태와 무관하게 항상 표시
   if (f.auraTimer > 0) { glow = (f.auraMove && f.auraMove.color) || '#a8ff3b'; }
   if (f.transformTimer > 0) { glow = '#2b6fd6'; scaleX *= 1.12; scaleY *= 1.12; }
+  if (f.yoyoTimer > 0) {
+    const yoyo = f.data.moves.ultimate.yoyo;
+    glow = (yoyo && yoyo.color) || '#e07b1a';
+    // 다시 확 불어난 몸을 강조하려고 변신 상태보다 더 크게 부풀린다
+    scaleX *= 1.2; scaleY *= 1.2;
+  }
 
   // 상태 전환이 뚝뚝 끊기지 않도록 목표값을 향해 매 프레임 부드럽게 보간한다.
   // 액션(공격류)은 이미 startup/active/recovery 진행률로 곡선이 짜여 있으니 빠르게 따라가고,
@@ -1861,6 +1962,20 @@ function drawFighter(f) {
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.arc(feetX, feetY - 100, 110, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 요요현상 지속 링 - 무겁게 출렁이는 느낌을 주려고 변신 링보다 느리게 펄스
+  if (f.yoyoTimer > 0) {
+    const yoyo = f.data.moves.ultimate.yoyo;
+    const pulse = 0.4 + Math.sin(t * 4) * 0.2;
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = (yoyo && yoyo.color) || '#e07b1a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(feetX, feetY - 100, 118, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }

@@ -262,5 +262,110 @@ const CHARACTERS = [
         hyperArmor: true
       }
     }
+  },
+  {
+    id: 'hyungjun',
+    name: '안형준',
+    color: '#8b5cf6',
+    // 아직 전용 기본 컷아웃 사진이 없어서, 정면을 보고 서 있는 막기 자세를
+    // idle/walk 등 전용 포즈가 없는 상태의 기본 대체 이미지로 사용
+    sprite: 'assets/characters/hyungjun_block.png',
+    portrait: 'assets/characters/hyungjun_portrait.jpg',
+    portraitCropTop: true,
+    // 동작 사진들이 전부 오른쪽을 보고 있는 구도라 기본 방향(오른쪽)과 일치, 보정 불필요
+    poseSprites: {
+      punch1: { src: 'assets/characters/hyungjun_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/hyungjun_kick2.png', dir: 1 },
+      block: { src: 'assets/characters/hyungjun_block.png', dir: 1 },
+      crouch: { src: 'assets/characters/hyungjun_crouch.png', dir: 1 },
+      jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 }
+      // hitstun/필살기 전용 사진은 아직 없음 - 기본 스프라이트(sprite)로 자동 대체됨
+    },
+    // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
+    ultimateForm: {
+      idle: { src: 'assets/characters/hyungjun_mj_idle.png', dir: 1 },
+      punch1: { src: 'assets/characters/hyungjun_mj_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_mj_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_mj_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/hyungjun_mj_kick2.png', dir: -1 },
+      jump: { src: 'assets/characters/hyungjun_mj_jump.png', dir: 1 },
+      block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 }
+    },
+    // 마운자로 모드가 끝난 뒤 이어지는 요요현상(10초) 동안 이 이미지들로 교체된다.
+    // 전용 idle/block 사진이 없어서 자세가 제일 무난한 punch1 사진으로 대체
+    yoyoForm: {
+      idle: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
+      punch1: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_yy_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_yy_kick1.png', dir: 1 },
+      kick2: { src: 'assets/characters/hyungjun_yy_kick2.png', dir: -1 },
+      jump: { src: 'assets/characters/hyungjun_yy_jump.png', dir: 1 },
+      crouch: { src: 'assets/characters/hyungjun_yy_crouch.png', dir: 1 }
+    },
+    hp: 100,
+    moves: {
+      // 기본기(잽/스트레이트/로우킥/하이킥) 수치는 다른 캐릭터들과 동일하게 맞춤
+      punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
+      punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
+      kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 11, guardType: 'low' },
+      kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
+      // ----- TODO: 아래 필살기2/3, 궁극기는 실제 컨셉·사진이 정해지기 전까지의
+      // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
+      specials: [
+        {
+          // 실제 블랙박스 영상(오토바이 밈)을 시전 중 화면에 그대로 재생하는 연출.
+          // 준비 시간이 2초로 매우 길지만(그동안 무방비), 대신 화면 어디든 확정타 +
+          // 3초라는 압도적인 기절을 준다 - 고위험 고보상형 필살기.
+          key: 'special1', name: '오토바이 밈', castText: '블랙박스 재생', type: 'burst', ignoreFacing: true,
+          damage: 16, range: 999,
+          startup: 120, active: 8, recovery: 24,
+          gaugeCost: 45, color: '#facc15',
+          cooldown: 420,
+          stunFrames: 180,
+          videoClip: {
+            frames: [
+              'assets/characters/hyungjun_clip1.jpg',
+              'assets/characters/hyungjun_clip2.jpg',
+              'assets/characters/hyungjun_clip3.jpg',
+              'assets/characters/hyungjun_clip4.jpg'
+            ],
+            frameDuration: 30
+          }
+        },
+        {
+          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
+          key: 'special2', name: '괴성', castText: '으아아!', type: 'burst', ignoreFacing: true,
+          damage: 15, range: 999,
+          startup: 20, active: 10, recovery: 22,
+          gaugeCost: 40, color: '#c084fc',
+          cooldown: 320, disabled: true
+        },
+        {
+          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
+          key: 'special3', name: '숨고르기', castText: 'HP회복', type: 'heal',
+          healAmount: 18, damage: 0,
+          startup: 20, active: 6, recovery: 14,
+          gaugeCost: 35, color: '#a78bfa',
+          cooldown: 320, disabled: true
+        }
+      ],
+      ultimate: {
+        // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
+        // 근력은 확 빠졌지만(데미지 1/3) 대신 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
+        name: '마운자로 모드', castText: '마운자로!', type: 'transform',
+        duration: 600, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
+        startup: 20, active: 10, recovery: 16,
+        color: '#ff3b6b',
+        // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
+        // 데미지는 2배로 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
+        // 10초 뒤에는 완전히 원래 상태(변신 전)로 돌아온다.
+        yoyo: {
+          duration: 600, dmgMult: 2, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
+          text: '요요현상...', color: '#e07b1a'
+        }
+      }
+    }
   }
 ];
