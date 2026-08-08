@@ -448,5 +448,76 @@ const CHARACTERS = [
         }
       }
     }
+  },
+  {
+    id: 'mac',
+    name: '맥',
+    // 맥은 일반 캐릭터 선택 목록/랜덤 풀/CPU 상대 풀에 안 나오는 전용 보스 - 오직
+    // "맥에게 도전" 카드를 통해서만(항상 CPU로) 만날 수 있다
+    hidden: true,
+    color: '#dc2626',
+    // 전용 포즈 사진들이 전부 있어서 기본 스프라이트는 사실상 idle의 대체용으로만 쓰임
+    sprite: 'assets/characters/mac_idle.png',
+    spriteDir: -1,
+    portrait: 'assets/characters/mac_challenge.jpg',
+    portraitCropTop: true,
+    poseSprites: {
+      idle: { src: 'assets/characters/mac_idle.png', dir: -1 },
+      walk: { src: 'assets/characters/mac_idle.png', dir: -1 },
+      // 전용 막기 사진이 없어서 기본 가드 자세(idle)로 대체
+      block: { src: 'assets/characters/mac_idle.png', dir: -1 },
+      punch1: { src: 'assets/characters/mac_punch1.png', dir: -1 },
+      punch2: { src: 'assets/characters/mac_punch2.png', dir: -1 },
+      kick1: { src: 'assets/characters/mac_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/mac_kick2.png', dir: 1 },
+      jump: { src: 'assets/characters/mac_jump.png', dir: -1 },
+      crouch: { src: 'assets/characters/mac_crouch.png', dir: -1 },
+      hitstun: { src: 'assets/characters/mac_hitstun.png', dir: 1 },
+      // 필살기 전용 사진은 없어서 기존 사진들 중 느낌이 맞는 걸 재사용
+      special1: { src: 'assets/characters/mac_punch1.png', dir: -1 },
+      special2: { src: 'assets/characters/mac_crouch.png', dir: -1 },
+      special3: { src: 'assets/characters/mac_kick2.png', dir: 1 }
+    },
+    // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고, 맞아도 대미지가 덜 들어간다(방어력 상승)
+    hp: 260,
+    defenseMult: 0.65,
+    moves: {
+      punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
+      punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
+      kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 11, guardType: 'low' },
+      kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
+      specials: [
+        {
+          key: 'special1', name: '원투 러쉬', castText: '원투!', type: 'dash',
+          damage: 16, range: 140,
+          startup: 12, active: 6, recovery: 18,
+          gaugeCost: 35, color: '#dc2626',
+          cooldown: 260
+        },
+        {
+          key: 'special2', name: '니킥 카운터', castText: '들어와', type: 'counter',
+          damage: 0, counterDamage: 28, range: 0,
+          chipHeal: 8, chipCastText: '가드 성공',
+          startup: 10, active: 20, recovery: 20,
+          gaugeCost: 35, color: '#f97316',
+          cooldown: 320
+        },
+        {
+          key: 'special3', name: '돌려차기', castText: '돌려차기!', type: 'burst',
+          damage: 14, range: 160, guardType: 'high',
+          startup: 16, active: 8, recovery: 20,
+          gaugeCost: 40, color: '#dc2626',
+          cooldown: 300
+        }
+      ],
+      ultimate: {
+        name: '파이터 모드', castText: '파이터 모드', type: 'aura',
+        duration: 300, tickDamage: 6, tickInterval: 20, range: 999,
+        startup: 16, active: 10, recovery: 20,
+        color: '#ff3b3b',
+        // 변신(파이터 모드) 발동 시 소량 체력 회복
+        healOnActivate: 20
+      }
+    }
   }
 ];

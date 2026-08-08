@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 25;
+const ASSET_VERSION = 26;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -127,6 +127,12 @@ CHARACTERS.forEach(c => {
 // ----- 캐릭터 선택 화면 구성 -----
 // 캐릭터를 고르면 바로 시작하지 않고 맵 선택 화면으로 넘어간다
 let pendingCharId = null;
+// "맥에게 도전" 카드를 누르면 무장(armed)되는 보스전 모드 - 이 상태에서 캐릭터를 고르면
+// 상대가 랜덤 CPU가 아니라 맥으로 고정되고, 제한시간도 무한이 된다. 매치가 시작되면 해제된다.
+let bossChallengeArmed = false;
+let pendingBossMode = false;
+const selectSubtitleEl = document.querySelector('#selectScreen .subtitle');
+const DEFAULT_SELECT_SUBTITLE = selectSubtitleEl ? selectSubtitleEl.textContent : '';
 
 // 선택 화면에 공용으로 쓰는 "랜덤" 카드 (캐릭터/맵 둘 다 실제 이미지가 없으니 물음표 아이콘으로 표시)
 function buildRandomCard(onPick) {
@@ -161,6 +167,9 @@ SELECTABLE_CHARACTERS.forEach(c => {
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
     pendingCharId = c.id;
+    pendingBossMode = bossChallengeArmed;
+    bossChallengeArmed = false;
+    if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
     selectScreen.classList.add('hidden');
     mapScreen.classList.remove('hidden');
   });
@@ -170,31 +179,34 @@ SELECTABLE_CHARACTERS.forEach(c => {
 // 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행
 selectGrid.appendChild(buildRandomCard(() => {
   pendingCharId = SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
+  pendingBossMode = bossChallengeArmed;
+  bossChallengeArmed = false;
+  if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
   selectScreen.classList.add('hidden');
   mapScreen.classList.remove('hidden');
 }));
 
-// 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
-const COMING_SOON_CHARACTERS = [
-  { name: '맥에게 도전', portrait: 'assets/characters/mac_challenge.jpg' }
-];
-COMING_SOON_CHARACTERS.forEach(c => {
+// "맥에게 도전" - 맥은 직접 고를 수 있는 캐릭터가 아니라 항상 CPU로만 나오는 보스.
+// 이 카드를 누르면 보스전 모드가 무장되고, 이어서 함께 싸울 내 캐릭터를 고르게 된다
+// (같은 캐릭터 선택 화면을 그대로 재사용 - 카드를 새로 안 만들고 안내 문구만 바꿔서 알려줌)
+const macBossData = CHARACTERS.find(c => c.id === 'mac');
+if (macBossData) {
   const card = document.createElement('div');
-  card.className = 'selectCard locked';
+  card.className = 'selectCard';
   const img = document.createElement('img');
-  img.src = c.portrait;
+  img.src = macBossData.portrait;
+  if (macBossData.portraitCropTop) img.style.objectPosition = 'center 10%';
   const nameEl = document.createElement('div');
   nameEl.className = 'charName';
-  nameEl.textContent = c.name;
-  const lockedLabel = document.createElement('div');
-  lockedLabel.className = 'lockedLabel';
-  lockedLabel.textContent = '준비중';
+  nameEl.textContent = '맥에게 도전';
   card.appendChild(img);
   card.appendChild(nameEl);
-  card.appendChild(lockedLabel);
-  // 클릭해도 아무 반응 없음 (아직 선택 불가)
+  card.addEventListener('click', () => {
+    bossChallengeArmed = true;
+    if (selectSubtitleEl) selectSubtitleEl.textContent = '맥에게 도전! 함께 싸울 캐릭터를 선택하세요';
+  });
   selectGrid.appendChild(card);
-});
+}
 
 // ----- 맵 선택 화면 구성 -----
 STAGES.forEach(s => {
@@ -210,7 +222,7 @@ STAGES.forEach(s => {
   card.addEventListener('click', () => {
     currentStage = s;
     mapScreen.classList.add('hidden');
-    startMatch(pendingCharId);
+    startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
   });
   mapGrid.appendChild(card);
 });
@@ -219,7 +231,7 @@ STAGES.forEach(s => {
 mapGrid.appendChild(buildRandomCard(() => {
   currentStage = STAGES[Math.floor(Math.random() * STAGES.length)];
   mapScreen.classList.add('hidden');
-  startMatch(pendingCharId);
+  startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
 }));
 
 document.getElementById('mapBackBtn').addEventListener('click', () => {
@@ -330,7 +342,10 @@ class Fighter {
     this.speedMult = 1;
     this.dmgMult = 1;
     this.atkSpeedMult = 1;
-    this.defenseMult = 1;
+    // 캐릭터 고유 방어 배율(opt-in) - 보스몹(맥)처럼 기본적으로 맷집이 좋은 캐릭터용.
+    // 변신 등으로 걸리는 defenseMult는 이 값에 곱해지는 게 아니라 여전히 덮어쓰므로 주의
+    // (applyHit은 attacker.dmgMult * defender.defenseMult만 곱하는 단순 구조 유지)
+    this.defenseMult = data.defenseMult || 1;
     this.poison = null;
     this.auraTimer = 0;
     this.auraMove = null;
@@ -379,15 +394,22 @@ let ultCutsceneImg = null, ultCutsceneTimer = 0, ultCutsceneColor = '#fff';
 const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','special3','ultimate'];
 
 let lastCpuId = null;
-function startMatch(playerCharId) {
+// forcedCpuId: 맥에게 도전 모드처럼 상대를 랜덤이 아니라 특정 캐릭터(맥)로 고정해야 할 때 사용.
+// infiniteTime: 보스전은 제한시간 없이 끝날 때까지 싸운다.
+function startMatch(playerCharId, forcedCpuId, infiniteTime) {
   const playerData = CHARACTERS.find(c => c.id === playerCharId);
-  let remainingChars = SELECTABLE_CHARACTERS.filter(c => c.id !== playerCharId);
-  // 다른 후보가 있는데도 직전 대전 상대가 연달아 또 나오는 게 매번 같은 캐릭터만
-  // 나오는 것처럼 느껴지는 원인이었으므로, 고를 수 있는 다른 캐릭터가 있으면 제외한다
-  const freshChars = remainingChars.filter(c => c.id !== lastCpuId);
-  if (freshChars.length) remainingChars = freshChars;
-  const cpuData = remainingChars[Math.floor(Math.random() * remainingChars.length)];
-  lastCpuId = cpuData.id;
+  let cpuData;
+  if (forcedCpuId) {
+    cpuData = CHARACTERS.find(c => c.id === forcedCpuId);
+  } else {
+    let remainingChars = SELECTABLE_CHARACTERS.filter(c => c.id !== playerCharId);
+    // 다른 후보가 있는데도 직전 대전 상대가 연달아 또 나오는 게 매번 같은 캐릭터만
+    // 나오는 것처럼 느껴지는 원인이었으므로, 고를 수 있는 다른 캐릭터가 있으면 제외한다
+    const freshChars = remainingChars.filter(c => c.id !== lastCpuId);
+    if (freshChars.length) remainingChars = freshChars;
+    cpuData = remainingChars[Math.floor(Math.random() * remainingChars.length)];
+    lastCpuId = cpuData.id;
+  }
 
   p1 = new Fighter(playerData, 260, false);
   p2 = new Fighter(cpuData, 700, true);
@@ -399,7 +421,7 @@ function startMatch(playerCharId) {
   rings = [];
   impactLines = [];
   matchOver = false;
-  matchTimer = ROUND_TIME;
+  matchTimer = infiniteTime ? Infinity : ROUND_TIME;
   shake = { time: 0, mag: 0 };
   zoom = 1;
   koBannerTimer = 0;
@@ -438,7 +460,7 @@ function startMatch(playerCharId) {
   resultScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
   touchControlsEl.classList.remove('hidden');
-  timerEl.textContent = ROUND_TIME;
+  timerEl.textContent = infiniteTime ? '∞' : ROUND_TIME;
   timerEl.classList.remove('urgent');
 
   lastTs = performance.now();
@@ -480,7 +502,8 @@ function loop(ts) {
 
   if (koBannerTimer > 0) koBannerTimer -= dt;
 
-  if (!matchOver) {
+  // 맥에게 도전 모드는 제한시간이 무한(matchTimer === Infinity) - 카운트다운/시간종료 자체를 건너뜀
+  if (!matchOver && matchTimer !== Infinity) {
     secondAccum += dt;
     if (secondAccum >= 1000) {
       secondAccum -= 1000;
