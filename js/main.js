@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 16;
+const ASSET_VERSION = 17;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -97,6 +97,8 @@ CHARACTERS.forEach(c => {
     if (mv.poseByPhase) {
       Object.values(mv.poseByPhase).forEach(p => { p.img = loadImage(p.src); });
     }
+    // 투사체가 도형이 아니라 실제 사진(오토바이 등)을 쓰는 경우 미리 로드
+    if (mv.projectileImage) mv.projectileImg = loadImage(mv.projectileImage);
   });
 });
 
@@ -569,9 +571,12 @@ function applyHit(attacker, defender, move, opts) {
     hitStop = 3;
     gainGauge(defender, dmg * 1.5);
   } else {
-    // 하이퍼 아머: 변신 궁극기 중 이미 공격 판정에 들어가 있으면 맞아도 경직/넉백 없이 공격을 이어간다
-    const hasArmor = (defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.data.moves.ultimate.hyperArmor &&
-      ACTION_STATES.includes(defender.state);
+    // 하이퍼 아머: 변신 궁극기 중이거나(캐릭터 전체 opt-in), 기술 자체에 armor가 붙어있으면
+    // (예: 오래 서서 버텨야 하는 필살기가 몇 대 맞는다고 계속 끊기지 않도록) 경직/넉백 없이 이어간다
+    const hasArmor = ACTION_STATES.includes(defender.state) && (
+      (defender.actionMove && defender.actionMove.armor) ||
+      ((defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.data.moves.ultimate.hyperArmor)
+    );
 
     defender.hp = Math.max(0, defender.hp - dmg);
     defender.hitFlash = 10;
@@ -1128,16 +1133,20 @@ function updateFighter(f, opp) {
 
       if (move.type === 'projectile') {
         const count = move.projectileCount || 1;
+        const isSprite = (move.projectileShape || 'orb') === 'sprite';
         for (let i = 0; i < count; i++) {
           projectiles.push({
             x: f.x + f.actionFacing * 90,
-            y: GROUND_Y - 130 + (i - (count - 1) / 2) * 26,
-            vx: f.actionFacing * (8 + i * 0.6),
+            y: isSprite ? GROUND_Y - 70 : GROUND_Y - 130 + (i - (count - 1) / 2) * 26,
+            vx: f.actionFacing * (move.projectileSpeed || (8 + i * 0.6)),
             owner: f,
             move,
             color: move.color || f.data.color,
-            life: 90,
+            life: move.projectileLife || 90,
             shape: move.projectileShape || 'orb',
+            img: isSprite ? move.projectileImg : undefined,
+            width: move.projectileWidth,
+            faceDir: f.actionFacing,
             spin: 0
           });
         }
@@ -1294,15 +1303,18 @@ function updateProjectiles() {
     p.x += p.vx;
     p.life--;
     if (p.shape === 'box') p.spin = (p.spin || 0) + 0.3 * Math.sign(p.vx || 1);
+    if (p.shape === 'sprite') p.spin = (p.spin || 0) + (p.spinSpeed || 0.12) * Math.sign(p.vx || 1);
     const target = p.owner === p1 ? p2 : p1;
     const dist = Math.abs(target.x - p.x);
-    let hit = false;
-    const hitRadius = p.shape === 'box' ? 56 : 46;
-    if (target.state !== 'ko' && dist < hitRadius) {
+    let removeNow = false;
+    const hitRadius = p.shape === 'box' ? 56 : p.shape === 'sprite' ? 75 : 46;
+    // pierce가 있으면 맞은 뒤에도 사라지지 않고 계속 뚫고 날아간다 (같은 대상은 한 번만 타격)
+    if (!p.hasHit && target.state !== 'ko' && dist < hitRadius) {
       applyHit(p.owner, target, p.move, { projectile: true });
-      hit = true;
+      p.hasHit = true;
+      removeNow = !p.move.pierce;
     }
-    if (hit || p.life <= 0 || p.x < -20 || p.x > STAGE_W + 20) {
+    if (removeNow || p.life <= 0 || p.x < -20 || p.x > STAGE_W + 20) {
       projectiles.splice(i, 1);
     }
   }
@@ -2019,6 +2031,19 @@ function drawProjectile(p) {
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     roundRectPath(-25, -14, 50, 9, 4);
     ctx.fill();
+    ctx.restore();
+    return;
+  }
+  if (p.shape === 'sprite' && isUsable(p.img)) {
+    // 오토바이처럼 실제 사진을 통째로 회전시키며 날려보내는 투사체 (골드윙 돌진 등)
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.spin || 0);
+    ctx.scale(p.faceDir || 1, 1);
+    ctx.shadowColor = p.color || '#000';
+    ctx.shadowBlur = 22;
+    const pw = p.width || 220;
+    const ph = pw * (p.img.naturalHeight / p.img.naturalWidth);
+    ctx.drawImage(p.img, -pw / 2, -ph / 2, pw, ph);
     ctx.restore();
     return;
   }

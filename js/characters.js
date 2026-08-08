@@ -285,8 +285,9 @@ const CHARACTERS = [
       kick2: { src: 'assets/characters/hyungjun_kick2.png', dir: 1 },
       block: { src: 'assets/characters/hyungjun_block.png', dir: 1 },
       crouch: { src: 'assets/characters/hyungjun_crouch.png', dir: 1 },
-      jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 }
-      // hitstun/필살기 전용 사진은 아직 없음 - 기본 스프라이트(sprite)로 자동 대체됨
+      jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 },
+      hitstun: { src: 'assets/characters/hyungjun_hitstun.png', dir: -1 },
+      special1: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 }
     },
     // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
     ultimateForm: {
@@ -307,7 +308,8 @@ const CHARACTERS = [
       kick1: { src: 'assets/characters/hyungjun_yy_kick1.png', dir: 1 },
       kick2: { src: 'assets/characters/hyungjun_yy_kick2.png', dir: -1 },
       jump: { src: 'assets/characters/hyungjun_yy_jump.png', dir: 1 },
-      crouch: { src: 'assets/characters/hyungjun_yy_crouch.png', dir: 1 }
+      crouch: { src: 'assets/characters/hyungjun_yy_crouch.png', dir: 1 },
+      hitstun: { src: 'assets/characters/hyungjun_yy_hitstun.png', dir: 1 }
     },
     hp: 100,
     moves: {
@@ -320,19 +322,17 @@ const CHARACTERS = [
       // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
       specials: [
         {
-          // 골드윙을 던지듯 불러내서(시전 자세) 올라타 그대로 돌진하는(active 자세) 스킬.
-          // 자세가 startup/active에서 서로 다른 사진으로 바뀌는 전용 연출(poseByPhase).
-          key: 'special1', name: '골드윙 돌진', castText: '내 골드윙 돌아와~', type: 'dash',
-          damage: 20, range: 150,
-          startup: 16, active: 10, recovery: 20,
+          // 안형준은 그 자리에서 "내 골드윙 돌아와~" 하며 부르는 동작만 하고,
+          // 골드윙이 혼자 날아가서 상대를 들이받는(맞아도 안 멈추고 계속 뚫고 날아감) 스킬.
+          // armor: 부르는 동작 중 몇 대 맞아도 끊기지 않도록(피드백 반영)
+          key: 'special1', name: '골드윙 돌진', castText: '내 골드윙 돌아와~', type: 'projectile',
+          damage: 20,
+          startup: 14, active: 10, recovery: 20,
           gaugeCost: 40, color: '#22543d',
           cooldown: 320,
-          dashSpeed: 10, dashFrames: 10, unblockable: true, pierce: true,
-          poseByPhase: {
-            startup: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 },
-            active: { src: 'assets/characters/hyungjun_bike_ride.png', dir: 1 },
-            recovery: { src: 'assets/characters/hyungjun_bike_ride.png', dir: 1 }
-          }
+          armor: true, unblockable: true, pierce: true, knockback: 32,
+          projectileShape: 'sprite', projectileImage: 'assets/characters/hyungjun_bike_solo.png',
+          projectileWidth: 240, projectileSpeed: 15, projectileLife: 75
         },
         {
           // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
@@ -355,14 +355,16 @@ const CHARACTERS = [
         // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
         // 근력은 확 빠졌지만(데미지 1/3) 대신 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
         name: '마운자로 모드', castText: '마운자로!', type: 'transform',
-        duration: 600, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
+        // 지속시간 10초 -> 7.2초로 하향 (432프레임)
+        duration: 432, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
         startup: 20, active: 10, recovery: 16,
         color: '#ff3b6b',
         // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
-        // 데미지는 2배로 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
+        // 데미지는 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
         // 10초 뒤에는 완전히 원래 상태(변신 전)로 돌아온다.
+        // (예전 데미지 2배는 상대가 일방적으로 맞기만 한다는 피드백으로 1.5배로 하향)
         yoyo: {
-          duration: 600, dmgMult: 2, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
+          duration: 600, dmgMult: 1.5, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
           text: '요요현상...', color: '#e07b1a'
         }
       }
