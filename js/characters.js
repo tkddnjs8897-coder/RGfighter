@@ -285,7 +285,8 @@ const CHARACTERS = [
       crouch: { src: 'assets/characters/hyungjun_crouch.png', dir: 1 },
       jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 },
       hitstun: { src: 'assets/characters/hyungjun_hitstun.png', dir: -1 },
-      special1: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 }
+      special1: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 },
+      special2: { src: 'assets/characters/hyungjun_special2_heal.png', dir: 1 }
     },
     // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
     ultimateForm: {
@@ -310,6 +311,16 @@ const CHARACTERS = [
       crouch: { src: 'assets/characters/hyungjun_yy_crouch.png', dir: 1 },
       hitstun: { src: 'assets/characters/hyungjun_yy_hitstun.png', dir: 1 }
     },
+    // 궁극기(꿈1/꿈2 스택)가 3스택에 도달해 "빛의용사 형준" 모드로 변신하면 쓰이는 전용 이미지.
+    // idle/walk/jump/crouch/hitstun 전용 사진은 아직 없어서(공격/막기 4장만 받음), 그 상태들은
+    // resolveFighterSprite에서 자동으로 평상시 poseSprites로 대체된다 (나중에 추가 사진이 오면 채우면 됨)
+    lightForm: {
+      punch1: { src: 'assets/characters/hyungjun_light_thrust.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_light_swing_a.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_light_sprawl.png', dir: 1 },
+      kick2: { src: 'assets/characters/hyungjun_light_swing_b.png', dir: 1 },
+      block: { src: 'assets/characters/hyungjun_light_blocks.png', dir: 1 }
+    },
     hp: 100,
     moves: {
       // 기본기(잽/스트레이트/로우킥/하이킥) 수치는 다른 캐릭터들과 동일하게 맞춤
@@ -317,8 +328,6 @@ const CHARACTERS = [
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
       kick1: { name: '로우킥', damage: 3, range: 160, startup: 7, active: 5, recovery: 11, guardType: 'low' },
       kick2: { name: '하이킥', damage: 6, range: 220, startup: 13, active: 6, recovery: 19, guardType: 'high' },
-      // ----- TODO: 아래 필살기2/3, 궁극기는 실제 컨셉·사진이 정해지기 전까지의
-      // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
       specials: [
         {
           // 안형준은 그 자리에서 "내 골드윙 돌아와~" 하며 부르는 동작만 하고,
@@ -334,37 +343,53 @@ const CHARACTERS = [
           projectileWidth: 240, projectileSpeed: 15, projectileLife: 75
         },
         {
-          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
-          key: 'special2', name: '괴성', castText: '으아아!', type: 'burst', ignoreFacing: true,
-          damage: 15, range: 999,
-          startup: 20, active: 10, recovery: 22,
-          gaugeCost: 40, color: '#c084fc',
-          cooldown: 320, disabled: true
+          // 힘들어서 잠깐 엎드려 숨고르는 회복기. "낑,,낑" 앓는 소리를 내며 체력 35% 회복.
+          // 회복 즉시 잠깐(80프레임≈1.3초) 그로기 상태가 되어 무방비해지는 대가가 있다.
+          key: 'special2', name: '숨고르기', castText: '낑,,낑', type: 'heal',
+          healAmount: 35, damage: 0,
+          startup: 18, active: 8, recovery: 16,
+          gaugeCost: 35, color: '#ffb703',
+          groggyDuration: 80, groggyText: '헉헉...',
+          cooldown: 420
         },
         {
-          // TODO: 아직 실제 컨셉/사진 미정 - 확정 전까지 사용 막아둠(disabled)
-          key: 'special3', name: '숨고르기', castText: 'HP회복', type: 'heal',
-          healAmount: 18, damage: 0,
-          startup: 20, active: 6, recovery: 14,
-          gaugeCost: 35, color: '#a78bfa',
-          cooldown: 320, disabled: true
+          // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
+          // 원래는 궁극기였다가 필살기3으로 이동 - 근력은 확 빠졌지만(데미지 1/3) 대신
+          // 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
+          key: 'special3', name: '마운자로 모드', castText: '마운자로!', type: 'transform',
+          // 지속시간 7.2초 -> 5초로 재조정 (300프레임)
+          duration: 300, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
+          startup: 20, active: 10, recovery: 16,
+          gaugeCost: 50, color: '#ff3b6b',
+          cooldown: 600,
+          // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
+          // 데미지는 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
+          // 지속시간 10초 -> 6초로 재조정 (360프레임)
+          // (예전 데미지 2배는 상대가 일방적으로 맞기만 한다는 피드백으로 1.5배로 하향)
+          yoyo: {
+            duration: 360, dmgMult: 1.5, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
+            text: '요요현상...', color: '#e07b1a'
+          }
         }
       ],
+      // 궁극기는 즉발이 아니라 스택형: 게이지가 찰 때마다(총 3번) 한 번씩 써야 하고,
+      // 1/2번째는 "꿈1"/"꿈2"(예전 오토바이 여행 사진) 회상 연출만 나올 뿐 아무 효과가 없다.
+      // 3번째(마지막 스택)에서만 실제로 "빛의용사 형준" 모드로 변신한다.
       ultimate: {
-        // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
-        // 근력은 확 빠졌지만(데미지 1/3) 대신 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
-        name: '마운자로 모드', castText: '마운자로!', type: 'transform',
-        // 지속시간 10초 -> 7.2초로 하향 (432프레임)
-        duration: 432, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
-        startup: 20, active: 10, recovery: 16,
-        color: '#ff3b6b',
-        // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
-        // 데미지는 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
-        // 10초 뒤에는 완전히 원래 상태(변신 전)로 돌아온다.
-        // (예전 데미지 2배는 상대가 일방적으로 맞기만 한다는 피드백으로 1.5배로 하향)
-        yoyo: {
-          duration: 600, dmgMult: 1.5, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
-          text: '요요현상...', color: '#e07b1a'
+        name: '꿈결', castText: '...', type: 'stackTransform',
+        startup: 16, active: 6, recovery: 14,
+        color: '#ffd23b',
+        stacks: [
+          { name: '꿈1', castText: '꿈1...', color: '#7fd9ff', image: 'assets/characters/hyungjun_dream1.png' },
+          { name: '꿈2', castText: '꿈2...', color: '#ff9ecf', image: 'assets/characters/hyungjun_dream2.png' }
+        ],
+        finalForm: {
+          // 빛의용사 형준: 날아다니며 싸우는 최종 변신. 공격력/방어력 전부 큰 폭으로 강화되고,
+          // 막기에 성공하면 아예 대미지가 들어가지 않는다(카운터). 전용 공격/막기 사진 4장 사용.
+          name: '빛의용사 형준', castText: '빛의용사 형준', type: 'transform', visualForm: 'lightForm',
+          duration: 480, dmgMult: 1.8, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.6,
+          blockNoDamage: true, canFly: true,
+          color: '#ffe08a'
         }
       }
     }
