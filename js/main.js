@@ -549,7 +549,9 @@ const PASSIVE_SPECIAL_GAUGE_PER_FRAME = 0.03;
 const PASSIVE_ULT_GAUGE_PER_FRAME = 0.012;
 function gainGauge(f, amount) {
   f.specialGauge = Math.min(100, f.specialGauge + amount * SPECIAL_GAUGE_RATE);
-  f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE);
+  // 캐릭터별 궁극기 게이지 배율(data.ultGaugeMult) - 기본 1배.
+  // 예: 안형준은 궁극기를 3번 채워야(스택형) 해서 그만큼 더 빨리 차게 보정
+  f.ultGauge = Math.min(100, f.ultGauge + amount * ULT_GAUGE_RATE * (f.data.ultGaugeMult || 1));
 }
 
 // ----- 피격 처리 -----
@@ -979,8 +981,8 @@ function update() {
   if (!matchOver) {
     p1.specialGauge = Math.min(100, p1.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
     p2.specialGauge = Math.min(100, p2.specialGauge + PASSIVE_SPECIAL_GAUGE_PER_FRAME);
-    p1.ultGauge = Math.min(100, p1.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME);
-    p2.ultGauge = Math.min(100, p2.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME);
+    p1.ultGauge = Math.min(100, p1.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME * (p1.data.ultGaugeMult || 1));
+    p2.ultGauge = Math.min(100, p2.ultGauge + PASSIVE_ULT_GAUGE_PER_FRAME * (p2.data.ultGaugeMult || 1));
   }
 
   updateHUD();
@@ -1835,8 +1837,15 @@ function drawFighter(f) {
 
   // 그로기(바닥에 뻗은 가로로 긴 사진)는 서 있는 캐릭터와 같은 높이로 그리면
   // 붕 떠 보이므로 낮게 그려서 실제로 바닥에 누워있는 것처럼 보이게 한다
-  const h = f.state === 'groggy' ? FIGHTER_H * 0.5 : FIGHTER_H;
-  const w = fighterWidth(img, h);
+  let h = f.state === 'groggy' ? FIGHTER_H * 0.5 : FIGHTER_H;
+  let w = fighterWidth(img, h);
+  // 가로로 아주 긴(누워있는 등) 사진은 목표 높이에 맞춰 그대로 폭을 늘리면 화면을 통째로
+  // 뒤덮을 만큼 거대해질 수 있다 - 최대 폭을 정해두고 넘으면 높이를 비례해서 줄인다
+  const MAX_FIGHTER_W = FIGHTER_W * 2.6;
+  if (w > MAX_FIGHTER_W) {
+    h *= MAX_FIGHTER_W / w;
+    w = MAX_FIGHTER_W;
+  }
   let offsetX = 0, offsetY = 0, rotate = 0, scaleX = 1, scaleY = 1;
   let tint = null, glow = null;
 
