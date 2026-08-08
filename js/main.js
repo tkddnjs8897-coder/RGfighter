@@ -529,6 +529,11 @@ function tryStartAction(f, key) {
     const finalForm = move.finalForm;
     if (finalForm && f.transformTimer > 0 && f.transformMove === finalForm && finalForm.followUp) {
       move = finalForm.followUp;
+      // 변신 지속시간이 얼마 안 남은 상태에서 마무리기를 시전하면, 시전 도중에
+      // transformTimer가 0이 되어 빛의용사 모습이 애니메이션 중간에 원래대로
+      // 풀려버리는 것을 방지 - 최소한 이 기술의 시전이 끝날 때까지는 변신 유지
+      const castFrames = (move.startup || 0) + (move.active || 0) + (move.recovery || 0) + 10;
+      if (f.transformTimer < castFrames) f.transformTimer = castFrames;
     }
   }
   if (!move) return;
