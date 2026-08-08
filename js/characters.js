@@ -318,24 +318,18 @@ const CHARACTERS = [
       // 임시 플레이스홀더임 (밸런스 수치만 다른 캐릭터 기준에 맞춰둠, 이름/연출은 가제) -----
       specials: [
         {
-          // 실제 블랙박스 영상(오토바이 밈)을 시전 중 화면에 그대로 재생하는 연출.
-          // 준비 시간이 2초로 매우 길지만(그동안 무방비), 대신 화면 어디든 확정타 +
-          // 3초라는 압도적인 기절을 준다 - 고위험 고보상형 필살기.
-          // 일단 보류 - disabled로 막아둠 (코드/에셋은 그대로 유지, 나중에 다시 켤 수 있음)
-          key: 'special1', name: '오토바이 밈', castText: '블랙박스 재생', type: 'burst', ignoreFacing: true,
-          damage: 16, range: 999,
-          startup: 120, active: 8, recovery: 24,
-          gaugeCost: 45, color: '#facc15',
-          cooldown: 420, disabled: true,
-          stunFrames: 180,
-          videoClip: {
-            frames: [
-              'assets/characters/hyungjun_clip1.jpg',
-              'assets/characters/hyungjun_clip2.jpg',
-              'assets/characters/hyungjun_clip3.jpg',
-              'assets/characters/hyungjun_clip4.jpg'
-            ],
-            frameDuration: 30
+          // 골드윙을 던지듯 불러내서(시전 자세) 올라타 그대로 돌진하는(active 자세) 스킬.
+          // 자세가 startup/active에서 서로 다른 사진으로 바뀌는 전용 연출(poseByPhase).
+          key: 'special1', name: '골드윙 돌진', castText: '내 골드윙 돌아와~', type: 'dash',
+          damage: 20, range: 150,
+          startup: 16, active: 10, recovery: 20,
+          gaugeCost: 40, color: '#22543d',
+          cooldown: 320,
+          dashSpeed: 10, dashFrames: 10, unblockable: true, pierce: true,
+          poseByPhase: {
+            startup: { src: 'assets/characters/hyungjun_bike_throw.png', dir: -1 },
+            active: { src: 'assets/characters/hyungjun_bike_ride.png', dir: 1 },
+            recovery: { src: 'assets/characters/hyungjun_bike_ride.png', dir: 1 }
           }
         },
         {
