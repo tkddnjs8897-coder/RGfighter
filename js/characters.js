@@ -267,6 +267,10 @@ const CHARACTERS = [
     id: 'hyungjun',
     name: '안형준',
     color: '#8b5cf6',
+    // 궁극기가 즉발이 아니라 스택형(게이지를 3번 채워야 최종 변신)이라 다른 캐릭터와 같은
+    // 속도로 차면 한 판(60초) 안에 3스택을 다 채우기 사실상 불가능함 - 형준만 궁극기 게이지가
+    // 1.6배 빠르게 차게 보정
+    ultGaugeMult: 1.6,
     // 아직 전용 기본 컷아웃 사진이 없어서, 정면을 보고 서 있는 막기 자세를
     // idle/walk 등 전용 포즈가 없는 상태의 기본 대체 이미지로 사용
     sprite: 'assets/characters/hyungjun_block.png',
@@ -334,7 +338,8 @@ const CHARACTERS = [
           // 골드윙이 혼자 날아가서 상대를 들이받는(맞아도 안 멈추고 계속 뚫고 날아감) 스킬.
           // armor: 부르는 동작 중 몇 대 맞아도 끊기지 않도록(피드백 반영)
           key: 'special1', name: '골드윙 돌진', castText: '내 골드윙 돌아와~', type: 'projectile',
-          damage: 20,
+          // 데미지 20 -> 16 하향 (형준 전반적인 데미지가 세다는 피드백 반영)
+          damage: 16,
           startup: 14, active: 10, recovery: 20,
           gaugeCost: 40, color: '#22543d',
           cooldown: 320,
@@ -358,16 +363,17 @@ const CHARACTERS = [
           // 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
           key: 'special3', name: '마운자로 모드', castText: '마운자로!', type: 'transform',
           // 지속시간 7.2초 -> 5초로 재조정 (300프레임)
-          duration: 300, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
+          // 데미지 배율 1/3 -> 1/4로 추가 하향 (마운자로 모드 데미지가 세다는 피드백 반영)
+          duration: 300, dmgMult: 1 / 4, speedMult: 2.5, atkSpeedMult: 1.6,
           startup: 20, active: 10, recovery: 16,
           gaugeCost: 50, color: '#ff3b6b',
           cooldown: 600,
           // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
           // 데미지는 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
           // 지속시간 10초 -> 6초로 재조정 (360프레임)
-          // (예전 데미지 2배는 상대가 일방적으로 맞기만 한다는 피드백으로 1.5배로 하향)
+          // (예전 데미지 2배 -> 1.5배로 하향했다가, 형준 전반 데미지 너프 피드백으로 1.3배로 재하향)
           yoyo: {
-            duration: 360, dmgMult: 1.5, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
+            duration: 360, dmgMult: 1.3, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
             text: '요요현상...', color: '#e07b1a'
           }
         }
@@ -387,7 +393,8 @@ const CHARACTERS = [
           // 빛의용사 형준: 날아다니며 싸우는 최종 변신. 공격력/방어력 전부 큰 폭으로 강화되고,
           // 막기에 성공하면 아예 대미지가 들어가지 않는다(카운터). 전용 공격/막기 사진 4장 사용.
           name: '빛의용사 형준', castText: '빛의용사 형준', type: 'transform', visualForm: 'lightForm',
-          duration: 480, dmgMult: 1.8, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.6,
+          // 데미지 배율 1.8 -> 1.5로 하향 (형준 전반 데미지 너프 피드백 반영)
+          duration: 480, dmgMult: 1.5, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.6,
           blockNoDamage: true, canFly: true,
           color: '#ffe08a'
         }
