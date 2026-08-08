@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 11;
+const ASSET_VERSION = 12;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -287,6 +287,7 @@ class Fighter {
     this.aiIntent = null;
     this.speedMult = 1;
     this.dmgMult = 1;
+    this.atkSpeedMult = 1;
     this.poison = null;
     this.auraTimer = 0;
     this.auraMove = null;
@@ -439,6 +440,11 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
+// 공격속도 버프(atkSpeedMult)가 걸려있으면 startup/active/recovery 프레임 수를 그만큼 단축시킨다
+function scaledFrames(f, frames) {
+  return Math.max(1, Math.round(frames / (f.atkSpeedMult || 1)));
+}
+
 // ----- 액션(기술) 시작 -----
 function tryStartAction(f, key) {
   if (!f.isFree || !f.isGrounded) return;
@@ -468,7 +474,7 @@ function tryStartAction(f, key) {
   f.state = key;
   f.actionMove = move;
   f.phase = 'startup';
-  f.stateTimer = move.startup;
+  f.stateTimer = scaledFrames(f, move.startup);
   f.hasHitThisActive = false;
   f.hasCountered = false;
   f.actionFacing = f.facing;
@@ -646,7 +652,7 @@ function processStatusEffects(f, opp) {
   if (f.transformTimer > 0) {
     f.transformTimer--;
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
-    if (f.transformTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; }
+    if (f.transformTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; }
   }
 }
 
@@ -1074,7 +1080,7 @@ function updateFighter(f, opp) {
 
     if (f.phase === 'startup' && f.stateTimer <= 0) {
       f.phase = 'active';
-      f.stateTimer = move.active;
+      f.stateTimer = scaledFrames(f, move.active);
       f.hasHitThisActive = false;
       f.effectApplied = false;
 
@@ -1175,6 +1181,7 @@ function updateFighter(f, opp) {
         f.transformTimer = move.duration;
         f.dmgMult = move.dmgMult || 1;
         f.speedMult = move.speedMult || 1;
+        f.atkSpeedMult = move.atkSpeedMult || 1;
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
       } else if (!['projectile', 'counter', 'heal', 'aura', 'transform'].includes(move.type) && !f.hasHitThisActive) {
         const dist = Math.abs(opp.x - f.x);
@@ -1193,12 +1200,12 @@ function updateFighter(f, opp) {
           spawnFloatingText(f.x, GROUND_Y - 220, move.chipCastText || '합의금 챙김', '#9ad24a');
           spawnParticles(f.x, GROUND_Y - 120, '#9ad24a', 8, 'hit');
         }
+        f.phase = 'recovery';
+        f.stateTimer = scaledFrames(f, move.recovery);
         if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {
           f.dashReturnFromX = f.x;
-          f.dashReturnTotal = move.recovery;
+          f.dashReturnTotal = f.stateTimer;
         }
-        f.phase = 'recovery';
-        f.stateTimer = move.recovery;
       }
     } else if (f.phase === 'recovery') {
       if (move.type === 'dash' && move.returnToStart && f.dashStartX != null) {

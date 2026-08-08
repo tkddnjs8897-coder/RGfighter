@@ -281,7 +281,17 @@ const CHARACTERS = [
       block: { src: 'assets/characters/hyungjun_block.png', dir: 1 },
       crouch: { src: 'assets/characters/hyungjun_crouch.png', dir: 1 },
       jump: { src: 'assets/characters/hyungjun_jump.png', dir: 1 }
-      // hitstun/필살기/궁극기 전용 사진은 아직 없음 - 기본 스프라이트(sprite)로 자동 대체됨
+      // hitstun/필살기 전용 사진은 아직 없음 - 기본 스프라이트(sprite)로 자동 대체됨
+    },
+    // 궁극기(마운자로 모드) 지속 중에는 이 이미지들로 전부 교체된다. 없는 상태(crouch 등)는 idle로 대체.
+    ultimateForm: {
+      idle: { src: 'assets/characters/hyungjun_mj_idle.png', dir: 1 },
+      punch1: { src: 'assets/characters/hyungjun_mj_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_mj_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_mj_kick1.png', dir: -1 },
+      kick2: { src: 'assets/characters/hyungjun_mj_kick2.png', dir: -1 },
+      jump: { src: 'assets/characters/hyungjun_mj_jump.png', dir: 1 },
+      block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 }
     },
     hp: 100,
     moves: {
@@ -316,10 +326,12 @@ const CHARACTERS = [
         }
       ],
       ultimate: {
-        name: '전력질주', castText: '전력질주', type: 'transform',
-        duration: 480, dmgMult: 1.6, speedMult: 1.3,
+        // 마운자로(비만치료제) 맞고 뼈밖에 안 남을 정도로 급격히 마른 상태가 되는 컨셉.
+        // 근력은 확 빠졌지만(데미지 1/3) 대신 미친듯이 날렵해짐(이동속도 2.5배, 공격속도 1.6배)
+        name: '마운자로 모드', castText: '마운자로!', type: 'transform',
+        duration: 600, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
         startup: 20, active: 10, recovery: 16,
-        color: '#8b5cf6'
+        color: '#ff3b6b'
       }
     }
   }
