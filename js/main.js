@@ -120,7 +120,10 @@ function buildRandomCard(onPick) {
   return card;
 }
 
-CHARACTERS.forEach(c => {
+// hidden: true 캐릭터(작업 중)는 선택 화면/랜덤 풀/CPU 상대 풀 전부에서 제외
+const SELECTABLE_CHARACTERS = CHARACTERS.filter(c => !c.hidden);
+
+SELECTABLE_CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard';
   const img = document.createElement('img');
@@ -141,7 +144,7 @@ CHARACTERS.forEach(c => {
 
 // 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행
 selectGrid.appendChild(buildRandomCard(() => {
-  pendingCharId = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id;
+  pendingCharId = SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   selectScreen.classList.add('hidden');
   mapScreen.classList.remove('hidden');
 }));
@@ -341,7 +344,7 @@ const ACTION_STATES = ['punch1','punch2','kick1','kick2','special1','special2','
 let lastCpuId = null;
 function startMatch(playerCharId) {
   const playerData = CHARACTERS.find(c => c.id === playerCharId);
-  let remainingChars = CHARACTERS.filter(c => c.id !== playerCharId);
+  let remainingChars = SELECTABLE_CHARACTERS.filter(c => c.id !== playerCharId);
   // 다른 후보가 있는데도 직전 대전 상대가 연달아 또 나오는 게 매번 같은 캐릭터만
   // 나오는 것처럼 느껴지는 원인이었으므로, 고를 수 있는 다른 캐릭터가 있으면 제외한다
   const freshChars = remainingChars.filter(c => c.id !== lastCpuId);
