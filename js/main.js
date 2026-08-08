@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 21;
+const ASSET_VERSION = 22;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -155,7 +155,8 @@ SELECTABLE_CHARACTERS.forEach(c => {
   if (c.portraitCropTop) img.style.objectPosition = 'center 10%';
   const nameEl = document.createElement('div');
   nameEl.className = 'charName';
-  nameEl.textContent = c.name;
+  // 선택 화면 카드에는 별명(selectName)이 있으면 그걸 우선 표시 (예: 안형준 -> 골절기)
+  nameEl.textContent = c.selectName || c.name;
   card.appendChild(img);
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
@@ -174,7 +175,9 @@ selectGrid.appendChild(buildRandomCard(() => {
 }));
 
 // 아직 실제로 구현되지 않은 예정 캐릭터 - 초상화만 미리 보여주고 선택은 막아둔다
-const COMING_SOON_CHARACTERS = [];
+const COMING_SOON_CHARACTERS = [
+  { name: '맥에게 도전', portrait: 'assets/characters/mac_challenge.jpg' }
+];
 COMING_SOON_CHARACTERS.forEach(c => {
   const card = document.createElement('div');
   card.className = 'selectCard locked';
