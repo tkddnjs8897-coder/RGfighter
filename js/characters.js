@@ -293,6 +293,17 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/hyungjun_mj_jump.png', dir: 1 },
       block: { src: 'assets/characters/hyungjun_mj_block.png', dir: 1 }
     },
+    // 마운자로 모드가 끝난 뒤 이어지는 요요현상(10초) 동안 이 이미지들로 교체된다.
+    // 전용 idle/block 사진이 없어서 자세가 제일 무난한 punch1 사진으로 대체
+    yoyoForm: {
+      idle: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
+      punch1: { src: 'assets/characters/hyungjun_yy_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/hyungjun_yy_punch2.png', dir: 1 },
+      kick1: { src: 'assets/characters/hyungjun_yy_kick1.png', dir: 1 },
+      kick2: { src: 'assets/characters/hyungjun_yy_kick2.png', dir: -1 },
+      jump: { src: 'assets/characters/hyungjun_yy_jump.png', dir: 1 },
+      crouch: { src: 'assets/characters/hyungjun_yy_crouch.png', dir: 1 }
+    },
     hp: 100,
     moves: {
       // 기본기(잽/스트레이트/로우킥/하이킥) 수치는 다른 캐릭터들과 동일하게 맞춤
@@ -331,7 +342,14 @@ const CHARACTERS = [
         name: '마운자로 모드', castText: '마운자로!', type: 'transform',
         duration: 600, dmgMult: 1 / 3, speedMult: 2.5, atkSpeedMult: 1.6,
         startup: 20, active: 10, recovery: 16,
-        color: '#ff3b6b'
+        color: '#ff3b6b',
+        // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
+        // 데미지는 2배로 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
+        // 10초 뒤에는 완전히 원래 상태(변신 전)로 돌아온다.
+        yoyo: {
+          duration: 600, dmgMult: 2, speedMult: 1 / 2.5, atkSpeedMult: 1 / 2.5,
+          text: '요요현상...', color: '#e07b1a'
+        }
       }
     }
   }

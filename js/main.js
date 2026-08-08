@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 12;
+const ASSET_VERSION = 13;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -85,6 +85,9 @@ CHARACTERS.forEach(c => {
   }
   if (c.ultimateForm) {
     Object.values(c.ultimateForm).forEach(p => { p.img = loadImage(p.src); });
+  }
+  if (c.yoyoForm) {
+    Object.values(c.yoyoForm).forEach(p => { p.img = loadImage(p.src); });
   }
 });
 
@@ -293,6 +296,8 @@ class Fighter {
     this.auraMove = null;
     this.auraTick = 0;
     this.transformTimer = 0;
+    // 변신 궁극기가 끝난 뒤 이어서 발동되는 2단계 부작용(예: 요요현상) 지속시간
+    this.yoyoTimer = 0;
     this.effectApplied = false;
     this.trail = [];
     this.lungeRemaining = 0;
@@ -550,7 +555,7 @@ function applyHit(attacker, defender, move, opts) {
     gainGauge(defender, dmg * 1.5);
   } else {
     // 하이퍼 아머: 변신 궁극기 중 이미 공격 판정에 들어가 있으면 맞아도 경직/넉백 없이 공격을 이어간다
-    const hasArmor = defender.transformTimer > 0 && defender.data.moves.ultimate.hyperArmor &&
+    const hasArmor = (defender.transformTimer > 0 || defender.yoyoTimer > 0) && defender.data.moves.ultimate.hyperArmor &&
       ACTION_STATES.includes(defender.state);
 
     defender.hp = Math.max(0, defender.hp - dmg);
@@ -560,7 +565,7 @@ function applyHit(attacker, defender, move, opts) {
       // 변신형 궁극기(메카모드/일본모드)로 버프받은 상태에서 맞히면 경직도 더 크게 준다.
       // (예전 조건은 attacker.state === 'ultimate' 였는데 실제 타격은 punch/kick 상태에서
       // 일어나 절대 참이 될 수 없는 죽은 코드였음)
-      defender.stateTimer = attacker.transformTimer > 0 ? 34 : 18;
+      defender.stateTimer = (attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18;
       const push = attacker.x < defender.x ? 1 : -1;
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
@@ -572,7 +577,7 @@ function applyHit(attacker, defender, move, opts) {
     gainGauge(defender, dmg);
 
     // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
-    if (attacker.transformTimer > 0 && attacker.data.moves.ultimate.bloodOnHit) {
+    if ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) && attacker.data.moves.ultimate.bloodOnHit) {
       spawnBloodEffect(defender.x, GROUND_Y - 120);
       shake.time = Math.max(shake.time, 14);
       shake.mag = Math.max(shake.mag, opts.big ? 16 : 10);
@@ -652,7 +657,28 @@ function processStatusEffects(f, opp) {
   if (f.transformTimer > 0) {
     f.transformTimer--;
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
-    if (f.transformTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; }
+    if (f.transformTimer <= 0) {
+      const yoyo = f.data.moves.ultimate.yoyo;
+      if (yoyo) {
+        // 변신이 끝나면 바로 원상복귀하지 않고, 부작용(요요현상) 단계로 이어진다
+        f.yoyoTimer = yoyo.duration;
+        f.dmgMult = yoyo.dmgMult || 1;
+        f.speedMult = yoyo.speedMult || 1;
+        f.atkSpeedMult = yoyo.atkSpeedMult || 1;
+        spawnFloatingText(f.x, GROUND_Y - 260, yoyo.text || '요요현상...', yoyo.color || '#e07b1a');
+        spawnParticles(f.x, GROUND_Y - 120, yoyo.color || '#e07b1a', 18, 'hit');
+        shake.time = Math.max(shake.time, 10); shake.mag = Math.max(shake.mag, 6);
+      } else {
+        f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1;
+      }
+    }
+  }
+
+  if (f.yoyoTimer > 0) {
+    f.yoyoTimer--;
+    const yoyoColor = (f.data.moves.ultimate.yoyo && f.data.moves.ultimate.yoyo.color) || '#e07b1a';
+    if (Math.random() < 0.25) spawnParticles(f.x, GROUND_Y - 10, yoyoColor, 1, 'spark');
+    if (f.yoyoTimer <= 0) { f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; }
   }
 }
 
@@ -1494,9 +1520,11 @@ function draw() {
 
   // 궁극기 지속 중인 쪽이 있으면 화면 가장자리에 테마색 비네트를 살짝 깔아
   // "지금 궁극기 상태다"가 카메라 흔들림과 무관하게 항상 또렷이 보이게 한다
-  const ultActiveFighter = [p1, p2].find(f => f.auraTimer > 0 || f.transformTimer > 0);
+  const ultActiveFighter = [p1, p2].find(f => f.auraTimer > 0 || f.transformTimer > 0 || f.yoyoTimer > 0);
   if (ultActiveFighter) {
-    const vColor = (ultActiveFighter.auraMove && ultActiveFighter.auraMove.color) || '#2b6fd6';
+    const yoyo = ultActiveFighter.data.moves.ultimate.yoyo;
+    const vColor = (ultActiveFighter.auraMove && ultActiveFighter.auraMove.color) ||
+      (ultActiveFighter.yoyoTimer > 0 && yoyo && yoyo.color) || '#2b6fd6';
     drawVignette(vColor);
   }
 
@@ -1555,6 +1583,11 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
+  // 요요현상(2단계 부작용) 지속 중이면 전용 이미지 세트를 최우선으로 사용
+  if (f.yoyoTimer > 0 && f.data.yoyoForm) {
+    const entry = f.data.yoyoForm[f.state] || f.data.yoyoForm.idle;
+    if (isUsable(entry && entry.img)) return entry;
+  }
   // 변신형(transform)이든 오라형(aura) 궁극기든, 지속 중이면 전용 이미지 세트로 교체
   if ((f.transformTimer > 0 || f.auraTimer > 0) && f.data.ultimateForm) {
     const entry = f.data.ultimateForm[f.state] || f.data.ultimateForm.idle;
@@ -1790,9 +1823,15 @@ function drawFighter(f) {
     scaleX *= 1 + 0.12 * lp;
   }
 
-  // 지속효과(오라/변신)는 상태와 무관하게 항상 표시
+  // 지속효과(오라/변신/요요현상)는 상태와 무관하게 항상 표시
   if (f.auraTimer > 0) { glow = (f.auraMove && f.auraMove.color) || '#a8ff3b'; }
   if (f.transformTimer > 0) { glow = '#2b6fd6'; scaleX *= 1.12; scaleY *= 1.12; }
+  if (f.yoyoTimer > 0) {
+    const yoyo = f.data.moves.ultimate.yoyo;
+    glow = (yoyo && yoyo.color) || '#e07b1a';
+    // 다시 확 불어난 몸을 강조하려고 변신 상태보다 더 크게 부풀린다
+    scaleX *= 1.2; scaleY *= 1.2;
+  }
 
   // 상태 전환이 뚝뚝 끊기지 않도록 목표값을 향해 매 프레임 부드럽게 보간한다.
   // 액션(공격류)은 이미 startup/active/recovery 진행률로 곡선이 짜여 있으니 빠르게 따라가고,
@@ -1866,6 +1905,20 @@ function drawFighter(f) {
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.arc(feetX, feetY - 100, 110, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 요요현상 지속 링 - 무겁게 출렁이는 느낌을 주려고 변신 링보다 느리게 펄스
+  if (f.yoyoTimer > 0) {
+    const yoyo = f.data.moves.ultimate.yoyo;
+    const pulse = 0.4 + Math.sin(t * 4) * 0.2;
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = (yoyo && yoyo.color) || '#e07b1a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(feetX, feetY - 100, 118, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
