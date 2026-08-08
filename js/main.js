@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 24;
+const ASSET_VERSION = 25;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -370,7 +370,7 @@ let koBannerTimer = 0;
 let introPhase = null; // 'ready' -> 'go' -> null(전투 시작)
 let introTimer = 0;
 let flashTime = 0, flashColor = '#fff';
-let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff';
+let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff', ultBannerSize = 64;
 // 스택형 궁극기(꿈1/꿈2 등)의 스택을 쌓을 때, 그 스택에 연결된 사진을 화면 중앙 위쪽에
 // 잠깐 크게 띄워서 보여주는 연출용 상태
 let ultCutsceneImg = null, ultCutsceneTimer = 0, ultCutsceneColor = '#fff';
@@ -405,6 +405,7 @@ function startMatch(playerCharId) {
   koBannerTimer = 0;
   flashTime = 0;
   ultBannerTimer = 0;
+  ultBannerSize = 64;
   introPhase = 'ready';
   introTimer = 700;
 
@@ -420,10 +421,12 @@ function startMatch(playerCharId) {
   document.getElementById('mkP2').textContent = `X ${m.punch2.name}`;
   document.getElementById('mkK1').textContent = `C ${m.kick1.name}`;
   document.getElementById('mkK2').textContent = `V ${m.kick2.name}`;
-  document.querySelector('#mkS1 .mkLabel').textContent = `A ${m.specials[0].name}`;
-  document.querySelector('#mkS2 .mkLabel').textContent = `S ${m.specials[1].name}`;
-  document.querySelector('#mkS3 .mkLabel').textContent = `D ${m.specials[2].name}`;
-  document.getElementById('mkUlt').textContent = `Space ${m.ultimate.name}`;
+  // 필살기/궁극기 버튼은 캐릭터별 기술 이름 대신 예전처럼 "필살기1/2/3", "궁극기"로 통일 표시
+  // (빛의용사 형준 모드처럼 예외적으로 이름이 바뀌는 경우는 updateHUD의 별도 로직에서 처리)
+  document.querySelector('#mkS1 .mkLabel').textContent = 'A 필살기1';
+  document.querySelector('#mkS2 .mkLabel').textContent = 'S 필살기2';
+  document.querySelector('#mkS3 .mkLabel').textContent = 'D 필살기3';
+  document.getElementById('mkUlt').textContent = 'Space 궁극기';
 
   // 모바일 터치 버튼도 실제 기술명으로 동기화 (필살기는 이름이 길어서 번호로 고정 표기)
   document.getElementById('tcP1').textContent = m.punch1.name;
@@ -515,6 +518,9 @@ function tryStartAction(f, key) {
   else if (key === 'kick1') move = moves.kick1;
   else if (key === 'kick2') move = moves.kick2;
   else if (key === 'special1' || key === 'special2' || key === 'special3') {
+    // 지금 걸려있는 변신(예: 빛의용사 형준)이 특정 기술을 막아둔 상태라면(lockedMoves) 시전 불가
+    // - 예: 빛의용사 형준 모드 중에는 마운자로(특3)를 다시 못 쓰게 해서 변신이 실수로 풀리는 것을 방지
+    if (f.transformMove && f.transformMove.lockedMoves && f.transformMove.lockedMoves.includes(key)) return;
     const idx = Number(key.slice(-1)) - 1;
     move = moves.specials[idx];
     // 아직 컨셉/사진이 확정 안 돼서 막아둔 필살기(예: 안형준 특2/특3)
@@ -1279,6 +1285,8 @@ function updateFighter(f, opp) {
             ultBannerText = bannerText;
             ultBannerColor = bannerColor;
             ultBannerTimer = isFinalActivation ? 90 : 50;
+            // 즉사기(궁극포)처럼 유독 강조하고 싶은 기술은 move.bannerBig으로 텍스트를 더 크게
+            ultBannerSize = move.bannerBig ? 96 : 64;
           }
           if (isFinalActivation) {
             // 빛의용사 형준 최종 변신: 최대한 화려하게 - 겹겹이 터지는 링/집중선 + 강한 화면 흔들림
@@ -1357,6 +1365,8 @@ function updateFighter(f, opp) {
         f.auraTimer = move.duration;
         f.auraMove = move;
         f.auraTick = 0;
+        // 변신 발동 시 소량 회복(opt-in) - 예: 신지드 모드, 메카 모드, 일본-좆킴
+        if (move.healOnActivate) f.hp = Math.min(f.data.hp, f.hp + move.healOnActivate);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#a8ff3b', 16, 'hit');
       } else if (move.type === 'transform' && !f.effectApplied) {
         f.effectApplied = true;
@@ -1371,6 +1381,8 @@ function updateFighter(f, opp) {
         f.speedMult = move.speedMult || 1;
         f.atkSpeedMult = move.atkSpeedMult || 1;
         f.defenseMult = move.defenseMult || 1;
+        // 변신 발동 시 소량 회복(opt-in) - 예: 신지드 모드, 메카 모드, 일본-좆킴
+        if (move.healOnActivate) f.hp = Math.min(f.data.hp, f.hp + move.healOnActivate);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
       } else if (move.type === 'stackTransform' && !f.effectApplied) {
         // 스택형 궁극기: 즉발 변신이 아니라 쓸 때마다 스택이 1씩 쌓이고(꿈1->꿈2, 아무 효과 없음),
@@ -1486,8 +1498,11 @@ function updateProjectiles() {
     const dist = Math.abs(target.x - p.x);
     let removeNow = false;
     const hitRadius = p.shape === 'box' ? 56 : p.shape === 'sprite' ? 75 : 46;
+    // move.jumpDodge가 있는 투사체는 지면에 가깝게 날아가서, 상대가 충분히 높이 점프해
+    // 피할 수 있다 (opt-in - 기존 투사체들의 판정은 그대로 유지)
+    const dodgedByJump = p.move.jumpDodge && target.height > (p.move.jumpDodgeHeight || 50);
     // pierce가 있으면 맞은 뒤에도 사라지지 않고 계속 뚫고 날아간다 (같은 대상은 한 번만 타격)
-    if (!p.hasHit && target.state !== 'ko' && dist < hitRadius) {
+    if (!p.hasHit && !dodgedByJump && target.state !== 'ko' && dist < hitRadius) {
       applyHit(p.owner, target, p.move, { projectile: true });
       p.hasHit = true;
       removeNow = !p.move.pierce;
@@ -1622,7 +1637,8 @@ function updateHUD() {
     const ult = p1.data.moves.ultimate;
     const finalForm = ult.finalForm;
     const inFinalForm = !!(finalForm && p1.transformTimer > 0 && p1.transformMove === finalForm && finalForm.followUp);
-    const label = inFinalForm ? '초궁극기' : ult.name;
+    // 평상시엔 캐릭터 상관없이 그냥 "궁극기"로 통일 표시, 빛의용사 형준 모드일 때만 예외적으로 "초궁극기"
+    const label = inFinalForm ? '초궁극기' : '궁극기';
     mkUltEl.textContent = `Space ${label}`;
     mkUltEl.classList.toggle('superUlt', inFinalForm);
     tcUltEl.textContent = label;
@@ -1799,7 +1815,7 @@ function draw() {
 
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
-  else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor);
+  else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor, ultBannerSize);
 
   // 스택형 궁극기 회상 사진(꿈1/꿈2 등)은 텍스트 배너와 별개로, 겹쳐서도 함께 보여준다
   if (ultCutsceneTimer > 0) drawUltCutscene(ultCutsceneImg, ultCutsceneColor, ultCutsceneTimer);
@@ -1864,11 +1880,11 @@ function drawFlash() {
 }
 
 // 화면 중앙에 큼직하게 뜨는 배너(READY / GO! / K.O.)
-function drawBanner(text, color) {
+function drawBanner(text, color, size) {
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 64px sans-serif';
+  ctx.font = `bold ${size || 64}px sans-serif`;
   ctx.lineWidth = 8;
   ctx.strokeStyle = 'rgba(0,0,0,0.7)';
   ctx.strokeText(text, STAGE_W / 2, STAGE_H / 2 - 40);

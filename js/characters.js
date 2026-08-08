@@ -93,7 +93,9 @@ const CHARACTERS = [
         // 가장 셌어서 6으로 낮춤 (총 90딜)
         duration: 300, tickDamage: 6, tickInterval: 20, range: 999,
         startup: 16, active: 10, recovery: 20,
-        color: '#a8ff3b'
+        color: '#a8ff3b',
+        // 변신(신지드-모드) 발동 시 소량 체력 회복
+        healOnActivate: 20
       }
     }
   },
@@ -175,7 +177,9 @@ const CHARACTERS = [
         name: '스즈키와 합체', castText: '메카-모드', type: 'transform',
         duration: 480, dmgMult: 1.6, speedMult: 1.35,
         startup: 20, active: 10, recovery: 16,
-        color: '#2b6fd6'
+        color: '#2b6fd6',
+        // 변신(메카-모드) 발동 시 소량 체력 회복
+        healOnActivate: 20
       }
     }
   },
@@ -260,7 +264,9 @@ const CHARACTERS = [
         startup: 20, active: 10, recovery: 16,
         color: '#ff2b2b', bloodOnHit: true,
         // 변신 중 공격 판정에 들어가 있을 때 맞아도 경직/넉백 없이 공격을 계속 이어간다
-        hyperArmor: true
+        hyperArmor: true,
+        // 변신(일본-좆킴) 발동 시 소량 체력 회복
+        healOnActivate: 20
       }
     }
   },
@@ -380,7 +386,9 @@ const CHARACTERS = [
           duration: 300, dmgMult: 1 / 4, speedMult: 2.5, atkSpeedMult: 1.6,
           startup: 20, active: 10, recovery: 16,
           gaugeCost: 50, color: '#ff3b6b',
-          cooldown: 600,
+          // 쿨타임 600 -> 900으로 늘림 (변신 지속시간 300 + 요요현상 360 = 660보다 넉넉하게 길게
+          // 잡아서, 이전 요요현상이 채 안 끝난 상태로 재시전할 수 있는 상황 자체를 줄임)
+          cooldown: 900,
           // 마운자로 모드가 끝나면 자동으로 이어지는 요요현상: 원래보다 더 부풀어서
           // 데미지는 세지지만, 몸이 무거워져서 이동속도/공격속도 둘 다 2.5배 느려진다.
           // 지속시간 10초 -> 6초로 재조정 (360프레임)
@@ -410,8 +418,12 @@ const CHARACTERS = [
           // 변신 순간 체력을 완전히 회복하고(fullHealOnActivate), 방어력도 더 단단해짐(0.6 -> 0.45)
           name: '빛의용사 형준', castText: '빛의용사 형준', type: 'transform', visualForm: 'lightForm',
           // 데미지 배율 1.8 -> 1.5로 하향 (형준 전반 데미지 너프 피드백 반영)
-          duration: 480, dmgMult: 1.5, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.45,
+          // 지속시간 480 -> 720으로 연장
+          duration: 720, dmgMult: 1.5, speedMult: 1.2, atkSpeedMult: 1.15, defenseMult: 0.45,
           blockNoDamage: true, canFly: true, fullHealOnActivate: true,
+          // 빛의용사 형준 모드 중에는 마운자로(특3)를 다시 못 쓰게 막아서, 실수로 변신이
+          // 풀리는(마운자로가 자기 자신을 새 변신으로 덮어써버리는) 상황을 원천 차단
+          lockedMoves: ['special3'],
           // 타격 성공 시 하양/노랑이 섞인 화려한 이펙트가 나오도록
           hitEffectColor: '#ffffff', hitEffectColor2: '#ffe066',
           color: '#ffe08a',
@@ -423,9 +435,15 @@ const CHARACTERS = [
             damage: 999,
             startup: 20, active: 12, recovery: 24,
             color: '#3bd6ff',
+            // 즉사기라 텍스트를 더 크게 강조 표시
+            bannerBig: true,
             unblockable: true, pierce: true, knockback: 46,
+            // 투사체 자체가 사진(sprite)이라 원래도 빙글빙글 돌지 않고 일직선으로만 날아감(회전 없음).
+            // 아주 천천히 날아가게(속도 18 -> 5) 하고, 점프로 넘어가면(50 이상 높이) 피할 수 있게 함 -
+            // 대신 느려진 만큼 화면을 완전히 가로지를 때까지 살아있도록 지속시간을 넉넉히 늘림
+            jumpDodge: true, jumpDodgeHeight: 50,
             projectileShape: 'sprite', projectileImage: 'assets/characters/hyungjun_light_cannon_projectile.png',
-            projectileWidth: 150, projectileSpeed: 18, projectileLife: 70
+            projectileWidth: 150, projectileSpeed: 5, projectileLife: 220
           }
         }
       }
