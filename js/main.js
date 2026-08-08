@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 23;
+const ASSET_VERSION = 24;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -1360,6 +1360,11 @@ function updateFighter(f, opp) {
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#a8ff3b', 16, 'hit');
       } else if (move.type === 'transform' && !f.effectApplied) {
         f.effectApplied = true;
+        // 이 변신의 쿨타임이 "변신 지속시간 + 요요현상 지속시간"보다 짧은 경우(예: 마운자로),
+        // 이전 변신의 요요 부작용이 아직 안 끝난 채로 재시전할 수 있음 - 그 상태에서 지우지
+        // 않으면 옛 요요타이머가 나중에 0이 되며 방금 새로 건 변신의 배율/transformMove를
+        // 통째로 지워버리는(그리고 새 변신이 끝날 때 자기 요요현상도 못 거는) 버그가 있었음
+        f.yoyoTimer = 0;
         f.transformMove = move;
         f.transformTimer = move.duration;
         f.dmgMult = move.dmgMult || 1;
@@ -1917,7 +1922,7 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 필살기 등 액션 상태는 대기(idle) 사진으로 대충 대체하면 "시전 중인데 그냥 서 있는" 것처럼
 // 보여서 어색하다 - 변신/요요현상 전용 사진이 없을 땐 그 상태의 idle로 대체하는 대신,
 // 아예 poseSprites(평상시 전용 사진)로 폴백하도록 예외 처리하는 상태 목록
-const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun'];
+const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun', 'groggy'];
 
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
