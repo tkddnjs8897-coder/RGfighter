@@ -247,3 +247,46 @@ const SFX = (() => {
     setVolume(v) { masterVol = Math.max(0, Math.min(1, v)); }
   };
 })();
+
+// ===== 배경음악 (실제 mp3 파일, 판마다 3곡 중 랜덤 재생) =====
+const BGM = (() => {
+  const TRACKS = [
+    'assets/bgm/bgm1.mp3',
+    'assets/bgm/bgm2.mp3',
+    'assets/bgm/bgm3.mp3'
+  ];
+  let audioEl = null;
+  let volume = 0.35;
+
+  function ensureEl() {
+    if (!audioEl) {
+      audioEl = new Audio();
+      audioEl.loop = true;
+      audioEl.volume = volume;
+    }
+    return audioEl;
+  }
+
+  // 전투 시작마다 3곡 중 하나를 무작위로 골라 처음부터 재생 (같은 곡이 연달아 나올 수도 있음 - 진짜 랜덤)
+  function playRandom() {
+    const el = ensureEl();
+    const track = TRACKS[Math.floor(Math.random() * TRACKS.length)];
+    el.src = track;
+    el.currentTime = 0;
+    el.volume = volume;
+    const p = el.play();
+    // 자동재생 정책으로 막히는 경우가 있어도(거의 없음 - 이미 클릭으로 시작된 흐름) 조용히 무시
+    if (p && p.catch) p.catch(() => {});
+  }
+
+  function stop() {
+    if (audioEl) audioEl.pause();
+  }
+
+  function setVolume(v) {
+    volume = Math.max(0, Math.min(1, v));
+    if (audioEl) audioEl.volume = volume;
+  }
+
+  return { playRandom, stop, setVolume };
+})();
