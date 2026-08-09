@@ -253,7 +253,10 @@ const BGM = (() => {
   const TRACKS = [
     'assets/bgm/bgm1.mp3',
     'assets/bgm/bgm2.mp3',
-    'assets/bgm/bgm3.mp3'
+    'assets/bgm/bgm3.mp3',
+    'assets/bgm/bgm4.mp3',
+    'assets/bgm/bgm5.mp3',
+    'assets/bgm/bgm6.mp3'
   ];
   let audioEl = null;
   let volume = 0.35;

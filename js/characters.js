@@ -511,6 +511,32 @@ const CHARACTERS = [
       // 같은 다리 배치라 동일하게 dir: 1
       hitstun: { src: 'assets/characters/mac_rider_hitstun.png', dir: 1 }
     },
+    // 2페이즈("철거오야지 맥") - 처음 체력이 0이 되는 순간 KO 대신 이 설정으로 부활한다.
+    // 시간제 변신이 아니라 이번 판이 끝날 때까지 계속 유지되며, 딱 한 번만 발동된다
+    // (main.js의 triggerPhase2Revival 참고). 궁극기는 이미 다 쓴 걸로 치고 이 모드
+    // 동안에는 아예 못 쓰게 막는다(main.js tryStartAction의 phase2Active 체크)
+    phase2: {
+      castText: '철거오야지 맥(페이즈2)', color: '#eab308',
+      bannerSlowFade: true, bannerFadeFrames: 300,
+      lockUltimate: true,
+      // 2페이즈 지속 중 약 2.5초(150프레임)마다 대사가 떠오른다 (배너 색과 달리 빨간색으로 표시)
+      periodicText: '형들 패고 시마이 치자..', periodicTextInterval: 150, periodicTextColor: '#ff3b3b'
+    },
+    phase2Form: {
+      // 대기/걷기/막기는 빠루를 방어적으로 든 자세 하나를 같이 씀 - 얼굴이 오른쪽을 보고 있어 dir: 1
+      idle: { src: 'assets/characters/mac_phase2_idle.png', dir: 1 },
+      walk: { src: 'assets/characters/mac_phase2_idle.png', dir: 1 },
+      block: { src: 'assets/characters/mac_phase2_idle.png', dir: 1 },
+      // 빠루를 위에서 내려찍는 스윙 두 종류를 잽/스트레이트에 배정
+      punch1: { src: 'assets/characters/mac_phase2_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/mac_phase2_punch2.png', dir: -1 },
+      // 넓게 휘두르는 스윙(일본좆킴모드와 유사) 하나를 로우킥/하이킥 공용으로 사용
+      kick1: { src: 'assets/characters/mac_phase2_kick.png', dir: -1 },
+      kick2: { src: 'assets/characters/mac_phase2_kick.png', dir: -1 },
+      crouch: { src: 'assets/characters/mac_phase2_crouch.png', dir: 1 },
+      jump: { src: 'assets/characters/mac_phase2_jump.png', dir: -1 },
+      hitstun: { src: 'assets/characters/mac_phase2_hitstun.png', dir: -1 }
+    },
     // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고(260 -> 320), 맞아도 대미지가
     // 덜 들어가며(방어력 0.65 -> 0.55), 이동속도/공격속도도 기본적으로 더 빠르다.
     // 맞아도 계속 얻어맞고만 있지 않도록 히트스턴도 다른 캐릭터의 절반만 받는다
