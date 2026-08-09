@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 44;
+const ASSET_VERSION = 45;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -867,6 +867,15 @@ function triggerPhase2Revival(f) {
   f.speedMult = f.data.speedMult || 1;
   f.atkSpeedMult = f.data.atkSpeedMult || 1;
   f.defenseMult = f.data.defenseMult || 1;
+
+  // 2페이즈로 넘어가는 순간 라운드 제한시간을 다시 꽉 채워준다 - 1페이즈를 깎는 데
+  // 시간을 많이 써서 부활 직후 시간이 얼마 안 남아있으면 2페이즈를 제대로 싸워볼
+  // 새도 없이 시간 종료로 끝나버리는 문제가 있었음 (보스전 무한시간 모드는 그대로 둔다)
+  if (matchTimer !== Infinity) {
+    matchTimer = ROUND_TIME;
+    timerEl.textContent = matchTimer;
+    timerEl.classList.remove('urgent');
+  }
 
   const color = p2.color || '#eab308';
   ultBannerText = p2.castText;
