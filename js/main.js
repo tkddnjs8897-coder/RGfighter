@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 32;
+const ASSET_VERSION = 33;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -481,6 +481,7 @@ function startMatch(playerCharId, forcedCpuId, infiniteTime) {
   timerEl.classList.remove('urgent');
 
   lastTs = performance.now();
+  simAccum = 0;
   running = true;
   requestAnimationFrame(loop);
 }
@@ -494,13 +495,27 @@ retryBtn.addEventListener('click', () => {
 
 // ----- 메인 루프 -----
 let secondAccum = 0;
+// update()의 이동속도/타이머 등은 전부 "매 프레임 -1" 같은 프레임 카운트 기반이라,
+// requestAnimationFrame을 화면 주사율(60Hz/120Hz/144Hz 등)에 맞춰 그냥 호출하면
+// 고주사율 모니터(PC)에서는 그만큼 update()가 더 자주 불려서 게임 전체가
+// 빨라져 보이는 문제가 있었음(피드백: "컴퓨터로 하면 속도가 너무 빨라").
+// 실제 경과 시간(dt)을 누적해뒀다가 60fps 한 프레임(16.67ms)치가 쌓일 때만
+// update()를 실행하는 고정 타임스텝으로 바꿔서, 화면 주사율과 무관하게 항상
+// 초당 60번만 시뮬레이션이 진행되도록 고정한다.
+const SIM_STEP_MS = 1000 / 60;
+const MAX_SIM_STEPS = 5; // 탭 전환 등으로 dt가 크게 튀어도 한 프레임에 몰아서 5스텝까지만
+let simAccum = 0;
 function loop(ts) {
   if (!running) return;
   const dt = Math.min(ts - lastTs, 50);
   lastTs = ts;
 
   if (hitStop > 0) {
-    hitStop--;
+    simAccum += dt;
+    while (simAccum >= SIM_STEP_MS && hitStop > 0) {
+      simAccum -= SIM_STEP_MS;
+      hitStop--;
+    }
     draw();
     requestAnimationFrame(loop);
     return;
@@ -532,7 +547,13 @@ function loop(ts) {
     }
   }
 
-  update();
+  simAccum = Math.min(simAccum + dt, SIM_STEP_MS * MAX_SIM_STEPS);
+  let steps = 0;
+  while (simAccum >= SIM_STEP_MS && steps < MAX_SIM_STEPS) {
+    simAccum -= SIM_STEP_MS;
+    update();
+    steps++;
+  }
   draw();
   requestAnimationFrame(loop);
 }
