@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 28;
+const ASSET_VERSION = 29;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -341,12 +341,12 @@ class Fighter {
     this.hitFlash = 0;
     this.aiTimer = 0;
     this.aiIntent = null;
-    this.speedMult = 1;
-    this.dmgMult = 1;
-    this.atkSpeedMult = 1;
-    // 캐릭터 고유 방어 배율(opt-in) - 보스몹(맥)처럼 기본적으로 맷집이 좋은 캐릭터용.
-    // 변신 등으로 걸리는 defenseMult는 이 값에 곱해지는 게 아니라 여전히 덮어쓰므로 주의
-    // (applyHit은 attacker.dmgMult * defender.defenseMult만 곱하는 단순 구조 유지)
+    // 캐릭터 고유 기본 배율(opt-in) - 보스몹(맥)처럼 기본적으로 세거나 맷집이 좋은
+    // 캐릭터용. 변신/토템 등으로 버프가 걸리고 풀릴 때는 1이 아니라 이 기본값으로
+    // 복귀해야 하므로, 초기화와 리셋 지점 모두 data.xxxMult를 기준으로 삼는다
+    this.speedMult = data.speedMult || 1;
+    this.dmgMult = data.dmgMult || 1;
+    this.atkSpeedMult = data.atkSpeedMult || 1;
     this.defenseMult = data.defenseMult || 1;
     this.poison = null;
     this.auraTimer = 0;
@@ -627,6 +627,21 @@ function gainGauge(f, amount) {
 }
 
 // ----- 피격 처리 -----
+// 총장 소환수가 얻어맞았을 때 처리 - 체력이 0이 되면 소환 자체가 사라진다
+function damageSummon(owner, dmg) {
+  const summon = owner.summon;
+  if (!summon) return;
+  summon.hp = Math.max(0, summon.hp - dmg);
+  spawnParticles(summon.x, GROUND_Y - 100, '#ff5b3b', 10, 'hit');
+  spawnFloatingText(summon.x, GROUND_Y - 240, '소환수 피격!', '#ff5b3b');
+  shake.time = Math.max(shake.time, 6); hitStop = Math.max(hitStop, 4);
+  if (summon.hp <= 0) {
+    spawnFloatingText(summon.x, GROUND_Y - 280, '소환수 소멸!', '#ff3b3b');
+    spawnParticles(summon.x, GROUND_Y - 120, '#ffffff', 22, 'spark');
+    owner.summon = null;
+  }
+}
+
 function applyHit(attacker, defender, move, opts) {
   opts = opts || {};
 
@@ -702,7 +717,9 @@ function applyHit(attacker, defender, move, opts) {
       // (예전 조건은 attacker.state === 'ultimate' 였는데 실제 타격은 punch/kick 상태에서
       // 일어나 절대 참이 될 수 없는 죽은 코드였음)
       // move.stunFrames가 있으면(예: 블랙박스 영상 필살기의 3초 기절) 그 값을 그대로 사용
-      defender.stateTimer = move.stunFrames || ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18);
+      const baseStun = move.stunFrames || ((attacker.transformTimer > 0 || attacker.yoyoTimer > 0) ? 34 : 18);
+      // 보스(맥)처럼 히트스턴 배율이 있는 캐릭터는 얻어맞아도 금방 정신 차리고 반격할 수 있다
+      defender.stateTimer = Math.max(1, Math.round(baseStun * (defender.data.hitstunMult || 1)));
       const push = attacker.x < defender.x ? 1 : -1;
       const knockback = move.knockback != null ? move.knockback : (opts.projectile ? 14 : 22);
       defender.x += push * knockback;
@@ -825,7 +842,7 @@ function processStatusEffects(f, opp) {
         spawnParticles(f.x, GROUND_Y - 120, yoyo.color || '#e07b1a', 18, 'hit');
         shake.time = Math.max(shake.time, 10); shake.mag = Math.max(shake.mag, 6);
       } else {
-        f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
+        f.dmgMult = f.data.dmgMult || 1; f.speedMult = f.data.speedMult || 1; f.atkSpeedMult = f.data.atkSpeedMult || 1; f.defenseMult = f.data.defenseMult || 1;
         // 스택형 궁극기(꿈1/꿈2 -> 빛 모드)로 걸었던 변신이 끝났으면 스택도 초기화
         f.ultStacks = 0;
         f.transformMove = null;
@@ -838,7 +855,7 @@ function processStatusEffects(f, opp) {
     const yoyoColor = (f.transformMove && f.transformMove.yoyo && f.transformMove.yoyo.color) || '#e07b1a';
     if (Math.random() < 0.25) spawnParticles(f.x, GROUND_Y - 10, yoyoColor, 1, 'spark');
     if (f.yoyoTimer <= 0) {
-      f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
+      f.dmgMult = f.data.dmgMult || 1; f.speedMult = f.data.speedMult || 1; f.atkSpeedMult = f.data.atkSpeedMult || 1; f.defenseMult = f.data.defenseMult || 1;
       f.transformMove = null;
     }
   }
@@ -910,7 +927,7 @@ function processStatusEffects(f, opp) {
     }
     if (totem.timer <= 0 || totem.hitsLeft <= 0) {
       f.totem = null;
-      f.dmgMult = 1; f.speedMult = 1; f.atkSpeedMult = 1; f.defenseMult = 1;
+      f.dmgMult = f.data.dmgMult || 1; f.speedMult = f.data.speedMult || 1; f.atkSpeedMult = f.data.atkSpeedMult || 1; f.defenseMult = f.data.defenseMult || 1;
     }
   }
 }
@@ -1489,10 +1506,13 @@ function updateFighter(f, opp) {
           healTimer: 0,
           textTimer: 60
         };
-        f.dmgMult = move.totemDmgMult || 1;
-        f.speedMult = move.totemSpeedMult || 1;
-        f.atkSpeedMult = move.totemAtkSpeedMult || 1;
-        f.defenseMult = move.totemDefenseMult || 1;
+        // 캐릭터 기본 배율(f.data.xxxMult) 위에 토템 버프를 곱해서 적용 - 기본값을
+        // 무시하고 덮어써버리면 맥처럼 기본 배율이 있는 캐릭터는 토템 중 오히려
+        // 약해지는 역효과가 남
+        f.dmgMult = (f.data.dmgMult || 1) * (move.totemDmgMult || 1);
+        f.speedMult = (f.data.speedMult || 1) * (move.totemSpeedMult || 1);
+        f.atkSpeedMult = (f.data.atkSpeedMult || 1) * (move.totemAtkSpeedMult || 1);
+        f.defenseMult = (f.data.defenseMult || 1) * (move.totemDefenseMult || 1);
         spawnParticles(f.x - f.actionFacing * 120, GROUND_Y - 40, move.color || '#dc2626', 20, 'hit');
       } else if (move.type === 'heal' && !f.effectApplied) {
         f.effectApplied = true;
@@ -1593,11 +1613,18 @@ function updateFighter(f, opp) {
           }
         }
       } else if (!['projectile', 'counter', 'heal', 'aura', 'transform', 'stackTransform'].includes(move.type) && !f.hasHitThisActive) {
-        const dist = Math.abs(opp.x - f.x);
         const facingCorrect = move.ignoreFacing || (opp.x - f.x) * f.actionFacing >= -10;
-        if (dist <= move.range && facingCorrect && opp.state !== 'ko') {
+        // 총장 소환수가 나보다(공격자보다) 판정 범위 안에 있으면 본체 대신 소환수를 때려서
+        // 부술 수 있다 (소환수 체력이 0이 되면 소멸) - 같은 스윙에 본체와 겹치면 소환수가 우선
+        if (facingCorrect && opp.summon && Math.abs(opp.summon.x - f.x) <= move.range) {
           f.hasHitThisActive = true;
-          applyHit(f, opp, move, { big: f.state === 'ultimate' });
+          damageSummon(opp, move.damage || 5);
+        } else {
+          const dist = Math.abs(opp.x - f.x);
+          if (dist <= move.range && facingCorrect && opp.state !== 'ko') {
+            f.hasHitThisActive = true;
+            applyHit(f, opp, move, { big: f.state === 'ultimate' });
+          }
         }
       }
 
