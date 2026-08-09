@@ -480,9 +480,14 @@ const CHARACTERS = [
       // 입-벌구(발사체를 가리키며 시전하는 포즈)
       special3: { src: 'assets/characters/mac_special3_seal.png', dir: 1 }
     },
-    // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고, 맞아도 대미지가 덜 들어간다(방어력 상승)
-    hp: 260,
-    defenseMult: 0.65,
+    // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고(260 -> 320), 맞아도 대미지가
+    // 덜 들어가며(방어력 0.65 -> 0.55), 이동속도/공격속도도 기본적으로 더 빠르다.
+    // 맞아도 계속 얻어맞고만 있지 않도록 히트스턴도 다른 캐릭터의 절반만 받는다
+    hp: 320,
+    defenseMult: 0.55,
+    speedMult: 1.15,
+    atkSpeedMult: 1.15,
+    hitstunMult: 0.5,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 9, active: 5, recovery: 15 },
@@ -498,7 +503,8 @@ const CHARACTERS = [
           totemImage: 'assets/characters/mac_totem_ducati.png',
           totemDuration: 600, totemHits: 3,
           totemDmgMult: 1.3, totemSpeedMult: 1.25, totemAtkSpeedMult: 1.2, totemDefenseMult: 0.8,
-          totemHealPerTick: 3, totemHealInterval: 60,
+          // HP 회복량 버프 (초당 3 -> 초당 6)
+          totemHealPerTick: 6, totemHealInterval: 60,
           totemBuffText: 'HP,이속,공속,방어력 증가',
           startup: 16, active: 8, recovery: 16,
           gaugeCost: 40, color: '#dc2626',
@@ -517,10 +523,11 @@ const CHARACTERS = [
         },
         {
           // 입-벌구 - 대미지는 없는 아주 느린 투사체. 맞으면 상대의 필살기/궁극기 중
-          // 하나가 20초(1200프레임)간 봉인된다 (자물쇠 표시, applyHit의 sealOnHit 처리)
+          // 하나가 23초(1380프레임, 기존 20초에서 살짝 버프)간 봉인된다
+          // (자물쇠 표시, applyHit의 sealOnHit 처리)
           key: 'special3', name: '입-벌구', castText: '입-벌구', type: 'projectile',
           damage: 0, unblockable: true,
-          sealOnHit: true, sealDuration: 1200,
+          sealOnHit: true, sealDuration: 1380,
           startup: 18, active: 10, recovery: 22,
           gaugeCost: 40, color: '#a855f7',
           projectileShape: 'orb', projectileSpeed: 4, projectileLife: 240,
