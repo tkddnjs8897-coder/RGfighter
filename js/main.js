@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 42;
+const ASSET_VERSION = 44;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -196,12 +196,12 @@ SELECTABLE_CHARACTERS.forEach(c => {
 });
 
 // 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행.
-// 숨겨진 보스(맥)를 5% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
+// 숨겨진 보스(맥)를 8% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
 // CPU 전용 취급이 아니라 tryStartAction/applyHit 등이 전부 id 기준으로 동작해서
 // 사람이 조작해도(p1) 라이더 모드/2페이즈 등 그대로 다 작동한다
 selectGrid.appendChild(buildRandomCard(() => {
   const secretMac = CHARACTERS.find(c => c.id === 'mac');
-  pendingCharId = (secretMac && Math.random() < 0.05)
+  pendingCharId = (secretMac && Math.random() < 0.08)
     ? secretMac.id
     : SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   pendingBossMode = bossChallengeArmed;
@@ -724,15 +724,7 @@ function applyHit(attacker, defender, move, opts) {
       spawnParticles(defender.x - 20, GROUND_Y - 260, '#ff3b3b', 6, 'spark');
       spawnParticles(defender.x + 20, GROUND_Y - 260, '#3b7bff', 6, 'spark');
     }
-    if (attacker.hp <= 0) {
-      if (attacker.data.phase2 && !attacker.usedPhase2) {
-        triggerPhase2Revival(attacker);
-      } else {
-        attacker.state = 'ko';
-        attacker.stateTimer = 9999;
-        triggerKO(defender);
-      }
-    }
+    checkDeathAndRevive(attacker, defender);
     return;
   }
 
@@ -843,15 +835,7 @@ function applyHit(attacker, defender, move, opts) {
 
   gainGauge(attacker, dmg * 1.5);
 
-  if (defender.hp <= 0) {
-    if (defender.data.phase2 && !defender.usedPhase2) {
-      triggerPhase2Revival(defender);
-    } else {
-      defender.state = 'ko';
-      defender.stateTimer = 9999;
-      triggerKO(attacker);
-    }
-  }
+  checkDeathAndRevive(defender, attacker);
 }
 
 // 2페이즈 부활(예: 맥의 철거오야지 모드) - 첫 사망 판정을 가로채서 KO 대신 HP를 꽉 채우고
@@ -905,6 +889,22 @@ function triggerPhase2Revival(f) {
   shake.mag = Math.max(shake.mag, 12);
 }
 
+// 사망 판정 공용 처리 - HP가 0 이하가 된 쪽(victim)이 2페이즈 대상이면 KO 대신 부활시키고,
+// 아니면 평소대로 KO 처리한다. 기본 타격뿐 아니라 도트(poison)/오라 틱/소환수 공격 등
+// HP를 직접 깎는 모든 경로가 이 함수 하나만 거치도록 해서, 어느 경로로 죽든 2페이즈가
+// 빠짐없이 적용되게 한다 (예전엔 오라 틱/도트/소환수 공격에서 각자 KO를 직접 처리하다가
+// 2페이즈 캐릭터가 그 경로로 죽으면 부활 없이 그냥 KO 처리되는 버그가 있었음)
+function checkDeathAndRevive(victim, killer) {
+  if (victim.hp > 0 || victim.state === 'ko') return;
+  if (victim.data.phase2 && !victim.usedPhase2) {
+    triggerPhase2Revival(victim);
+  } else {
+    victim.state = 'ko';
+    victim.stateTimer = 9999;
+    triggerKO(killer);
+  }
+}
+
 // 오라(지속 도트) 등 방향성 없는 지속 피해에도 정면에서 제대로 막고 있으면
 // 일반 타격과 동일하게 칩 데미지만 들어가도록 판정하기 위한 공용 방어 체크
 function isGuardingAgainst(defender, sourceX) {
@@ -924,10 +924,7 @@ function processStatusEffects(f, opp) {
       f.hp = Math.max(0, f.hp - f.poison.dmg);
       f.hitFlash = 6;
       spawnParticles(f.x, GROUND_Y - 120, f.poison.color, 6, 'spark');
-      if (f.hp <= 0 && f.state !== 'ko') {
-        f.state = 'ko'; f.stateTimer = 9999;
-        triggerKO(opp);
-      }
+      checkDeathAndRevive(f, opp);
     }
   }
 
@@ -945,10 +942,7 @@ function processStatusEffects(f, opp) {
         spawnParticles(opp.x, GROUND_Y - 120, blocked ? '#3bd6ff' : f.auraMove.color, 6, 'spark');
         gainGauge(f, 2);
         if (blocked) gainGauge(opp, tickDmg * 1.5);
-        if (opp.hp <= 0 && opp.state !== 'ko') {
-          opp.state = 'ko'; opp.stateTimer = 9999;
-          triggerKO(f);
-        }
+        checkDeathAndRevive(opp, f);
       }
     }
     if (Math.random() < 0.4) spawnParticles(f.x + (Math.random() - 0.5) * 60, GROUND_Y - 100 - Math.random() * 100, f.auraMove.color, 1, 'spark');
@@ -1048,10 +1042,7 @@ function processStatusEffects(f, opp) {
         if (attackText) spawnFloatingText(summon.x, GROUND_Y - 260, attackText, attackColor || '#fbbf24');
         gainGauge(f, tickDmg);
         if (blocked) gainGauge(opp, tickDmg * 1.5);
-        if (opp.hp <= 0 && opp.state !== 'ko') {
-          opp.state = 'ko'; opp.stateTimer = 9999;
-          triggerKO(f);
-        }
+        checkDeathAndRevive(opp, f);
       }
     }
     if (summon.timer <= 0) f.summon = null;
