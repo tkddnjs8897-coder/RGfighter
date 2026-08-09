@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 38;
+const ASSET_VERSION = 39;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -23,7 +23,13 @@ const ctx = canvas.getContext('2d');
 
 // 창 크기에 맞춰 전체 화면을 축소/확대 (캔버스 해상도는 그대로 유지)
 const stageEl = document.getElementById('stage');
-const IS_TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
+// hover/pointer 미디어쿼리만 보면 카카오톡/인스타그램 인앱 브라우저 같은 일부 웹뷰에서
+// 터치 기기인데도 잘못된 값을 보고해서 모바일 조작 버튼이 아예 안 뜨는 문제가 있었음 -
+// ontouchstart/maxTouchPoints까지 같이 확인해서 하나라도 터치로 판단되면 터치 기기로 취급
+const IS_TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches ||
+  ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// CSS는 이 클래스를 기준으로 터치 전용 UI(모바일 조작 버튼, 회전 안내 등) 표시 여부를 결정한다
+document.documentElement.classList.toggle('is-touch', IS_TOUCH);
 // 예전엔 "필요한 세로 공간"을 780/610 같은 고정값으로 어림짐작했는데, 안형준처럼 궁극기
 // 스택 칸이 추가로 붙는 캐릭터를 고르면 실제 HUD 높이가 그 값보다 커져서 화면 위쪽
 // (체력바 등)이 뷰포트 밖으로 밀려나 안 보이는 버그가 있었음 - 실제 렌더된 콘텐츠 높이를
