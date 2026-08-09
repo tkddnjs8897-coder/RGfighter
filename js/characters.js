@@ -488,6 +488,9 @@ const CHARACTERS = [
     riderForm: {
       // 실제 플레이 화면에서 계속 반대로 보인다는 피드백이 반복돼서, 판단 대신 반전(dir)을 뒤집음
       idle: { src: 'assets/characters/mac_rider_idle.png', dir: -1 },
+      // 대기 자세는 정상인데 걷기만 반대로 보인다는 피드백 - 같은 사진을 걷기 상태 전용으로
+      // 한 번 더 넣어서 idle과 반대 방향(dir)으로 표시되게 함
+      walk: { src: 'assets/characters/mac_rider_idle.png', dir: 1 },
       // 펀치(잽/스트레이트 공용) 사진은 주먹이 오른쪽으로 뻗어 있어 dir: 1
       punch1: { src: 'assets/characters/mac_rider_punch1.png', dir: 1 },
       punch2: { src: 'assets/characters/mac_rider_punch2.png', dir: 1 },
