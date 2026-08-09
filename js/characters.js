@@ -339,8 +339,9 @@ const CHARACTERS = [
       kick1: { src: 'assets/characters/hyungjun_light_sprawl.png', dir: 1 },
       kick2: { src: 'assets/characters/hyungjun_light_swing_b.png', dir: 1 },
       block: { src: 'assets/characters/hyungjun_light_blocks.png', dir: 1 },
-      // 빛의용사 형준 모드 중 궁극기(Space)를 다시 쓰면 나가는 즉사기(궁극포) 전용 시전 자세
-      ultimate: { src: 'assets/characters/hyungjun_light_cannon_pose.png', dir: 1 }
+      // 빛의용사 형준 모드 중 궁극기(Space)를 다시 쓰면 나가는 즉사기(궁극포) 전용 시전 자세 -
+      // 좌우가 반대로 나온다는 피드백으로 방향(dir) 반전
+      ultimate: { src: 'assets/characters/hyungjun_light_cannon_pose.png', dir: -1 }
     },
     hp: 130,
     moves: {
@@ -579,7 +580,9 @@ const CHARACTERS = [
         startup: 16, active: 10, recovery: 20,
         color: '#ff3b3b',
         // 변신(라이더 모드) 발동 시 소량 체력 회복
-        healOnActivate: 25
+        healOnActivate: 25,
+        // 라이더 모드 지속 중 약 2.5초(150프레임)마다 대사가 떠오른다
+        periodicText: '형들 뚜드려패주마..', periodicTextInterval: 150
       }
     }
   }
