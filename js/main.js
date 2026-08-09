@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 40;
+const ASSET_VERSION = 41;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -854,6 +854,22 @@ function triggerPhase2Revival(f) {
   f.phase = null;
   f.actionMove = null;
   f.stateTimer = 0;
+
+  // 죽는 순간 라이더 모드(궁극기)나 다른 변신/토템/소환수가 걸려 있던 상태 그대로였다면
+  // resolveFighterSprite가 그 변신을 phase2보다 먼저 우선시해서 2페이즈 모습이 안 보이는
+  // 문제가 있었음 - 어떤 상황에서 죽었든 무조건 깨끗한 상태에서 2페이즈로 넘어가게 전부 정리
+  f.transformTimer = 0;
+  f.transformMove = null;
+  f.yoyoTimer = 0;
+  f.auraTimer = 0;
+  f.auraMove = null;
+  f.totem = null;
+  f.summon = null;
+  f.poison = null;
+  f.dmgMult = f.data.dmgMult || 1;
+  f.speedMult = f.data.speedMult || 1;
+  f.atkSpeedMult = f.data.atkSpeedMult || 1;
+  f.defenseMult = f.data.defenseMult || 1;
 
   const color = p2.color || '#eab308';
   ultBannerText = p2.castText;
