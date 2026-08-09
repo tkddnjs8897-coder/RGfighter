@@ -458,14 +458,16 @@ const CHARACTERS = [
     color: '#dc2626',
     // 전용 포즈 사진들이 전부 있어서 기본 스프라이트는 사실상 idle의 대체용으로만 쓰임
     sprite: 'assets/characters/mac_idle.png',
-    spriteDir: -1,
+    spriteDir: 1,
     portrait: 'assets/characters/mac_challenge.jpg',
     portraitCropTop: true,
     poseSprites: {
-      idle: { src: 'assets/characters/mac_idle.png', dir: -1 },
-      walk: { src: 'assets/characters/mac_idle.png', dir: -1 },
+      // 실제 플레이 화면에서 계속 반대로 보인다는 피드백이 반복돼서, 판단 대신
+      // 그냥 반전(dir)을 뒤집음 - 대기/걷기/막기가 전부 이 사진 하나를 같이 씀
+      idle: { src: 'assets/characters/mac_idle.png', dir: 1 },
+      walk: { src: 'assets/characters/mac_idle.png', dir: 1 },
       // 전용 막기 사진이 없어서 기본 가드 자세(idle)로 대체
-      block: { src: 'assets/characters/mac_idle.png', dir: -1 },
+      block: { src: 'assets/characters/mac_idle.png', dir: 1 },
       punch1: { src: 'assets/characters/mac_punch1.png', dir: -1 },
       punch2: { src: 'assets/characters/mac_punch2.png', dir: -1 },
       kick1: { src: 'assets/characters/mac_kick1.png', dir: -1 },
@@ -484,9 +486,8 @@ const CHARACTERS = [
     // 전용 사진이 없는 상태는 resolveFighterSprite가 idle로 자동 대체한다.
     // special2/special3는 라이더 모드 중 전용 시전 사진(총장 소환/입-벌구)으로 따로 교체된다
     riderForm: {
-      // 기본자세 사진: 얼굴(헬멧 시야)이 오른쪽을 향하고 있어 dir: 1로 수정
-      // (걷기 상태가 이 사진으로 대체되는데 반대로 잘못 넣어서 이동 중 등을 보이는 버그가 있었음)
-      idle: { src: 'assets/characters/mac_rider_idle.png', dir: 1 },
+      // 실제 플레이 화면에서 계속 반대로 보인다는 피드백이 반복돼서, 판단 대신 반전(dir)을 뒤집음
+      idle: { src: 'assets/characters/mac_rider_idle.png', dir: -1 },
       // 펀치(잽/스트레이트 공용) 사진은 주먹이 오른쪽으로 뻗어 있어 dir: 1
       punch1: { src: 'assets/characters/mac_rider_punch1.png', dir: 1 },
       punch2: { src: 'assets/characters/mac_rider_punch2.png', dir: 1 },
@@ -495,9 +496,9 @@ const CHARACTERS = [
       kick2: { src: 'assets/characters/mac_rider_kick2.png', dir: -1 },
       // 막기 전용 사진이 없어서 가드 자세에 가까운 사진으로 대체
       block: { src: 'assets/characters/mac_rider_block.png', dir: 1 },
-      // 점프/앉기 사진도 idle과 같은 헬멧 시야(얼굴이 오른쪽)라 dir: 1로 통일
-      jump: { src: 'assets/characters/mac_rider_jump.png', dir: 1 },
-      crouch: { src: 'assets/characters/mac_rider_crouch.png', dir: 1 },
+      // 점프/앉기 사진도 idle과 같은 촬영분이라 함께 반전
+      jump: { src: 'assets/characters/mac_rider_jump.png', dir: -1 },
+      crouch: { src: 'assets/characters/mac_rider_crouch.png', dir: -1 },
       // 총장 소환(마법진 대신 오토바이 홀로그램을 부르는 포즈) - 손이 오른쪽으로 뻗어있어 dir: 1
       special2: { src: 'assets/characters/mac_rider_summon.png', dir: 1 },
       // 입-벌구(오른쪽을 가리키는 포즈) - dir: 1
