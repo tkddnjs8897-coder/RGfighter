@@ -349,7 +349,12 @@ h1 {
 /* ----- 모바일 터치 컨트롤 ----- */
 /* #stage(transform: scale) 바깥의 body 직속 요소라서 화면 배율과 무관하게
    항상 실제 화면 기준 고정 크기로 표시된다. 데스크톱(마우스)에서는 숨기고,
-   터치 기기에서 게임 화면일 때만 노출 (표시 여부는 .hidden 클래스로 JS가 제어) */
+   터치 기기에서 게임 화면일 때만 노출 (표시 여부는 .hidden 클래스로 JS가 제어).
+   터치 감지는 CSS 미디어쿼리(hover:none/pointer:coarse) 단독이 아니라 JS에서
+   ontouchstart/maxTouchPoints까지 같이 확인해서 <html>에 붙이는 is-touch
+   클래스로 판단한다 - 카카오톡/인스타그램 인앱 브라우저 같은 일부 웹뷰가
+   hover/pointer 미디어 피처를 잘못 보고해서 터치 기기인데도 버튼이 아예
+   안 뜨던 문제가 있었음 */
 #touchControls {
   display: none;
   position: fixed;
@@ -358,9 +363,7 @@ h1 {
   z-index: 500;
 }
 
-@media (hover: none) and (pointer: coarse) {
-  #touchControls { display: block; }
-}
+html.is-touch #touchControls { display: block; }
 
 .tcCluster {
   position: absolute;
@@ -522,11 +525,9 @@ h1 {
 
 /* 터치 기기: 키보드 안내용 하단 바는 필요 없고, HUD도 살짝 줄여서
    그만큼 캔버스(대전 화면)를 더 크게 보여준다 */
-@media (hover: none) and (pointer: coarse) {
-  #moveBar { display: none; }
-  #hud { padding: 4px 6px; }
-  .portrait { width: 40px; height: 40px; }
-}
+html.is-touch #moveBar { display: none; }
+html.is-touch #hud { padding: 4px 6px; }
+html.is-touch .portrait { width: 40px; height: 40px; }
 
 #rotateHint {
   display: none;
@@ -544,8 +545,8 @@ h1 {
   padding: 20px;
 }
 
-@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
-  #rotateHint { display: flex; }
+@media (orientation: portrait) {
+  html.is-touch #rotateHint { display: flex; }
 }
 
 #moveBar {
