@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 29;
+const ASSET_VERSION = 30;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -633,7 +633,6 @@ function damageSummon(owner, dmg) {
   if (!summon) return;
   summon.hp = Math.max(0, summon.hp - dmg);
   spawnParticles(summon.x, GROUND_Y - 100, '#ff5b3b', 10, 'hit');
-  spawnFloatingText(summon.x, GROUND_Y - 240, '소환수 피격!', '#ff5b3b');
   shake.time = Math.max(shake.time, 6); hitStop = Math.max(hitStop, 4);
   if (summon.hp <= 0) {
     spawnFloatingText(summon.x, GROUND_Y - 280, '소환수 소멸!', '#ff3b3b');
@@ -1287,11 +1286,17 @@ function runAI(f, opp) {
       f.x += f.walkDir * MOVE_SPEED * f.speedMult;
       f.state = 'walk';
       break;
-    case 'retreat':
-      f.walkDir = opp.x > f.x ? -1 : 1;
-      f.x += f.walkDir * MOVE_SPEED * f.speedMult;
+    case 'retreat': {
+      // 뒤로 물러날 때도 격투기 스텝백처럼 시선(walkDir, 렌더링 방향)은 계속 상대를
+      // 향하게 하고, 실제 이동만 반대(후퇴) 방향으로 - 안 그러면 뒤로 빠지는 동안
+      // 상대를 등지고 걷는 것처럼 보이는 문제가 있었음(맥에게 도전 모드 초반에
+      // CPU가 후퇴를 고르면 상대를 안 바라보는 것처럼 보였던 원인)
+      const faceDir = opp.x > f.x ? 1 : -1;
+      f.walkDir = faceDir;
+      f.x -= faceDir * MOVE_SPEED * f.speedMult;
       f.state = 'walk';
       break;
+    }
     case 'jump':
       if (f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
       break;
