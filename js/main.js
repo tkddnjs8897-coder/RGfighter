@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 39;
+const ASSET_VERSION = 40;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -112,6 +112,10 @@ CHARACTERS.forEach(c => {
   // 맥의 라이더 모드(궁극기) 전용 이미지 세트
   if (c.riderForm) {
     Object.values(c.riderForm).forEach(p => { p.img = loadImage(p.src); });
+  }
+  // 맥의 2페이즈(철거오야지) 전용 이미지 세트
+  if (c.phase2Form) {
+    Object.values(c.phase2Form).forEach(p => { p.img = loadImage(p.src); });
   }
   // 필살기/궁극기 중 실제 영상(블랙박스 등) 클립처럼 여러 장을 순서대로 보여주는 연출이 있으면 미리 로드
   const allMoves = [...c.moves.specials, c.moves.ultimate];
@@ -373,6 +377,10 @@ class Fighter {
     this.yoyoTimer = 0;
     // 궁극기가 즉발이 아니라 스택형(예: 안형준의 꿈1/꿈2 -> 빛 모드)인 캐릭터용 스택 카운터
     this.ultStacks = 0;
+    // 2페이즈(첫 사망 시 부활, 예: 맥의 철거오야지 모드) - usedPhase2는 이번 판에서 이미
+    // 한 번 부활했는지(재발동 방지), phase2Active는 지금 그 변신 상태가 유지 중인지
+    this.usedPhase2 = false;
+    this.phase2Active = false;
     this.effectApplied = false;
     this.trail = [];
     this.lungeRemaining = 0;
@@ -602,6 +610,8 @@ function tryStartAction(f, key) {
     if (f.specialGauge < move.gaugeCost) return;
     if (move.cooldown && f.cooldowns[key] > 0) return;
   } else if (key === 'ultimate') {
+    // 2페이즈(철거오야지 맥 등)로 부활한 상태면 궁극기는 이미 다 쓴 걸로 치고 못 쓰게 막는다
+    if (f.phase2Active && f.data.phase2 && f.data.phase2.lockUltimate) return;
     if (f.ultGauge < 100) return;
     move = moves.ultimate;
     // 이미 최종 변신(예: 빛의용사 형준) 상태라면, 스택 궁극기 대신 그 변신의 마무리기
@@ -702,9 +712,13 @@ function applyHit(attacker, defender, move, opts) {
       spawnParticles(defender.x + 20, GROUND_Y - 260, '#3b7bff', 6, 'spark');
     }
     if (attacker.hp <= 0) {
-      attacker.state = 'ko';
-      attacker.stateTimer = 9999;
-      triggerKO(defender);
+      if (attacker.data.phase2 && !attacker.usedPhase2) {
+        triggerPhase2Revival(attacker);
+      } else {
+        attacker.state = 'ko';
+        attacker.stateTimer = 9999;
+        triggerKO(defender);
+      }
     }
     return;
   }
@@ -817,10 +831,49 @@ function applyHit(attacker, defender, move, opts) {
   gainGauge(attacker, dmg * 1.5);
 
   if (defender.hp <= 0) {
-    defender.state = 'ko';
-    defender.stateTimer = 9999;
-    triggerKO(attacker);
+    if (defender.data.phase2 && !defender.usedPhase2) {
+      triggerPhase2Revival(defender);
+    } else {
+      defender.state = 'ko';
+      defender.stateTimer = 9999;
+      triggerKO(attacker);
+    }
   }
+}
+
+// 2페이즈 부활(예: 맥의 철거오야지 모드) - 첫 사망 판정을 가로채서 KO 대신 HP를 꽉 채우고
+// 영구 변신시킨다. 시간제 변신(transformTimer)과 달리 이번 판이 끝날 때까지 유지되며,
+// 재사용 방지를 위해 usedPhase2로 한 번만 발동되게 막는다
+function triggerPhase2Revival(f) {
+  const p2 = f.data.phase2;
+  f.usedPhase2 = true;
+  f.phase2Active = true;
+  f.hp = f.data.hp;
+  f.hitFlash = 0;
+  f.state = 'idle';
+  f.phase = null;
+  f.actionMove = null;
+  f.stateTimer = 0;
+
+  const color = p2.color || '#eab308';
+  ultBannerText = p2.castText;
+  ultBannerColor = color;
+  ultBannerFadeSlow = !!p2.bannerSlowFade;
+  ultBannerTimer = ultBannerFadeSlow ? (p2.bannerFadeFrames || 300) : 90;
+  ultBannerFadeTotal = ultBannerTimer;
+  ultBannerSize = p2.bannerBig ? 96 : 64;
+
+  triggerFlash('#ffffff', 26);
+  spawnImpactLines(STAGE_W / 2, STAGE_H / 2, color, 34);
+  spawnRing(f.x, GROUND_Y - 120, color, 180, 26);
+  spawnRing(f.x, GROUND_Y - 120, '#ffffff', 320, 44);
+  spawnRing(f.x, GROUND_Y - 120, color, 460, 56);
+  spawnParticles(f.x, GROUND_Y - 140, color, 40, 'hit');
+  spawnParticles(f.x, GROUND_Y - 140, '#ffffff', 24, 'spark');
+  hitStop = Math.max(hitStop, 26);
+  zoom = 1.55;
+  shake.time = Math.max(shake.time, 26);
+  shake.mag = Math.max(shake.mag, 12);
 }
 
 // 오라(지속 도트) 등 방향성 없는 지속 피해에도 정면에서 제대로 막고 있으면
@@ -903,6 +956,16 @@ function processStatusEffects(f, opp) {
         f.ultStacks = 0;
         f.transformMove = null;
       }
+    }
+  }
+
+  // 2페이즈(철거오야지 맥 등)는 시간제 변신이 아니라 계속 유지되는 상태라 transformTimer
+  // 블록과 별개로 처리한다 - 마찬가지로 opt-in(move.periodicText)이면 주기적으로 대사를 띄움
+  if (f.phase2Active && f.data.phase2 && f.data.phase2.periodicText) {
+    f.transformTextTimer = (f.transformTextTimer || 0) + 1;
+    if (f.transformTextTimer >= (f.data.phase2.periodicTextInterval || 150)) {
+      f.transformTextTimer = 0;
+      spawnFloatingText(f.x, GROUND_Y - 300, f.data.phase2.periodicText, f.data.phase2.periodicTextColor || f.data.phase2.color || '#fff');
     }
   }
 
@@ -1891,7 +1954,10 @@ function updateHUD() {
 
   // 모바일 터치 버튼도 게이지가 차면 반짝이도록 동기화 (플레이어=p1 기준)
   const p1Specials = p1.data.moves.specials;
-  const isSealed = (key) => !!(p1.sealedMoves && p1.sealedMoves[key] > 0);
+  // 2페이즈(철거오야지 맥 등)로 궁극기를 아예 못 쓰게 된 상태도 입-벌구 봉인과 같은
+  // 자물쇠 표시를 그대로 재사용한다
+  const isSealed = (key) => !!(p1.sealedMoves && p1.sealedMoves[key] > 0) ||
+    (key === 'ultimate' && p1.phase2Active && !!(p1.data.phase2 && p1.data.phase2.lockUltimate));
   const specialReady = (i) => !p1Specials[i].disabled && p1.specialGauge >= p1Specials[i].gaugeCost &&
     !(p1Specials[i].cooldown && p1.cooldowns[`special${i + 1}`] > 0) && !isSealed(`special${i + 1}`);
   tcS1El.classList.toggle('ready', specialReady(0));
@@ -2350,6 +2416,16 @@ function resolveFighterSprite(f) {
   // 오라형(aura) 궁극기(변신은 아님) 지속 중이면 ultimateForm 이미지 세트로 교체
   if (f.auraTimer > 0 && f.data.ultimateForm) {
     const formSet = f.data.ultimateForm;
+    const hasOwn = !!formSet[f.state];
+    if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
+      const entry = formSet[f.state] || formSet.idle;
+      if (isUsable(entry && entry.img)) return entry;
+    }
+  }
+  // 2페이즈(첫 사망 시 부활하며 영구 변신, 예: 맥의 철거오야지 모드) - 시간제 변신이 아니라
+  // 한 번 발동하면 이번 판이 끝날 때까지 계속 유지된다
+  if (f.phase2Active && f.data.phase2Form) {
+    const formSet = f.data.phase2Form;
     const hasOwn = !!formSet[f.state];
     if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
       const entry = formSet[f.state] || formSet.idle;
