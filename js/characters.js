@@ -432,7 +432,7 @@ const CHARACTERS = [
           // 상대를 관통한다. 맞으면 사실상 즉사(데미지 999) + 막기 불가.
           followUp: {
             key: 'ultimate', name: '궁극포', castText: '할카스포', type: 'projectile',
-            damage: 999,
+            damage: 999, faceOpponentOnCast: true,
             startup: 20, active: 12, recovery: 24,
             color: '#3bd6ff',
             // 즉사기라 텍스트를 더 크게 강조 표시
@@ -480,6 +480,27 @@ const CHARACTERS = [
       // 입-벌구(발사체를 가리키며 시전하는 포즈)
       special3: { src: 'assets/characters/mac_special3_seal.png', dir: 1 }
     },
+    // 궁극기(라이더 모드) 지속 중에는 이 이미지들로 전부 교체된다. block/hitstun 등
+    // 전용 사진이 없는 상태는 resolveFighterSprite가 idle로 자동 대체한다.
+    // special2/special3는 라이더 모드 중 전용 시전 사진(총장 소환/입-벌구)으로 따로 교체된다
+    riderForm: {
+      // 기본자세 사진은 왼쪽을 보고 있어서 dir: -1
+      idle: { src: 'assets/characters/mac_rider_idle.png', dir: -1 },
+      // 펀치(잽/스트레이트 공용) 사진은 주먹이 오른쪽으로 뻗어 있어 dir: 1
+      punch1: { src: 'assets/characters/mac_rider_punch1.png', dir: 1 },
+      punch2: { src: 'assets/characters/mac_rider_punch2.png', dir: 1 },
+      // 로우킥은 다리가 오른쪽으로 뻗는 사진으로, 하이킥은 다리가 왼쪽으로 뻗는 사진으로 배정
+      kick1: { src: 'assets/characters/mac_rider_kick1.png', dir: 1 },
+      kick2: { src: 'assets/characters/mac_rider_kick2.png', dir: -1 },
+      // 막기 전용 사진이 없어서 가드 자세에 가까운 사진으로 대체
+      block: { src: 'assets/characters/mac_rider_block.png', dir: 1 },
+      jump: { src: 'assets/characters/mac_rider_jump.png', dir: -1 },
+      crouch: { src: 'assets/characters/mac_rider_crouch.png', dir: -1 },
+      // 총장 소환(마법진 대신 오토바이 홀로그램을 부르는 포즈) - 손이 오른쪽으로 뻗어있어 dir: 1
+      special2: { src: 'assets/characters/mac_rider_summon.png', dir: 1 },
+      // 입-벌구(오른쪽을 가리키는 포즈) - dir: 1
+      special3: { src: 'assets/characters/mac_rider_seal.png', dir: 1 }
+    },
     // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고(260 -> 320), 맞아도 대미지가
     // 덜 들어가며(방어력 0.65 -> 0.55), 이동속도/공격속도도 기본적으로 더 빠르다.
     // 맞아도 계속 얻어맞고만 있지 않도록 히트스턴도 다른 캐릭터의 절반만 받는다
@@ -499,12 +520,13 @@ const CHARACTERS = [
           // 그동안 맥에게만 HP회복 + 공격력/이동속도/공격속도 증가 + 방어력 강화 버프를 준다.
           // 3번 맞거나 지속시간이 다 되면 사라진다 (main.js의 'totem' 타입 처리 참고)
           key: 'special1', name: '피규어 토템', castText: '피규어 토템', type: 'totem',
-          damage: 0,
+          damage: 0, faceOpponentOnCast: true,
           totemImage: 'assets/characters/mac_totem_ducati.png',
-          totemDuration: 600, totemHits: 3,
+          // 지속시간 10초 -> 15초로 연장 (900프레임), 기본 공격 3번으로 부술 수 있는 내구도는 유지
+          totemDuration: 900, totemHits: 3,
           totemDmgMult: 1.3, totemSpeedMult: 1.25, totemAtkSpeedMult: 1.2, totemDefenseMult: 0.8,
-          // HP 회복량 버프 (초당 3 -> 초당 6)
-          totemHealPerTick: 6, totemHealInterval: 60,
+          // HP 회복량이 너무 세다는 피드백으로 초당 6 -> 초당 3으로 너프 (원래 값으로 복귀)
+          totemHealPerTick: 3, totemHealInterval: 60,
           totemBuffText: 'HP,이속,공속,방어력 증가',
           startup: 16, active: 8, recovery: 16,
           gaugeCost: 40, color: '#dc2626',
@@ -514,7 +536,7 @@ const CHARACTERS = [
           // 총장(양주완) 소환 - 지속시간 동안 소환수가 상대를 주기적으로 공격한다.
           // 소환수 체력은 양주완 실제 최대체력의 35%만 (summonHpRatio) - 화면에 초록 체력바로 표시
           key: 'special2', name: '총장 소환', castText: '총장 소환', type: 'summon',
-          damage: 0,
+          damage: 0, faceOpponentOnCast: true,
           summonId: 'yang', summonHpRatio: 0.35, summonDuration: 320,
           tickDamage: 5, tickInterval: 40,
           startup: 22, active: 10, recovery: 20,
@@ -526,7 +548,7 @@ const CHARACTERS = [
           // 하나가 23초(1380프레임, 기존 20초에서 살짝 버프)간 봉인된다
           // (자물쇠 표시, applyHit의 sealOnHit 처리)
           key: 'special3', name: '입-벌구', castText: '입-벌구', type: 'projectile',
-          damage: 0, unblockable: true,
+          damage: 0, unblockable: true, faceOpponentOnCast: true,
           sealOnHit: true, sealDuration: 1380,
           startup: 18, active: 10, recovery: 22,
           gaugeCost: 40, color: '#a855f7',
@@ -534,13 +556,21 @@ const CHARACTERS = [
           cooldown: 420
         }
       ],
+      // 라이더 모드 - 라이더 슈트(헬멧+재킷) 차림으로 변신해 60초간 싸운다. 지속시간 내내
+      // 기본기/필살기2(총장 소환)/필살기3(입-벌구)의 모습이 전부 라이더 전용 사진(riderForm)으로
+      // 바뀐다. 시전 즉시 상대를 정확히 바라보도록(faceOpponentOnCast) 하고, 텍스트도 뚝
+      // 끊기지 않고 서서히 사라지게(bannerSlowFade) 한다
       ultimate: {
-        name: '파이터 모드', castText: '파이터 모드', type: 'aura',
-        duration: 300, tickDamage: 6, tickInterval: 20, range: 999,
+        name: '라이더 모드', castText: '진짜 라이더 맥(페이즈1)', type: 'transform', visualForm: 'riderForm',
+        faceOpponentOnCast: true,
+        // 문구가 길어서 bannerBig(96px)을 쓰면 화면 밖으로 잘려 나가므로 기본 크기(64px) 유지
+        bannerSlowFade: true, bannerFadeFrames: 300,
+        duration: 3600, // 60초
+        dmgMult: 1.25, speedMult: 1.1, atkSpeedMult: 1.15, defenseMult: 0.85,
         startup: 16, active: 10, recovery: 20,
         color: '#ff3b3b',
-        // 변신(파이터 모드) 발동 시 소량 체력 회복
-        healOnActivate: 20
+        // 변신(라이더 모드) 발동 시 소량 체력 회복
+        healOnActivate: 25
       }
     }
   }
