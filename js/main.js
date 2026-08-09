@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 45;
+const ASSET_VERSION = 46;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -149,6 +149,9 @@ let pendingCharId = null;
 // 상대가 랜덤 CPU가 아니라 맥으로 고정되고, 제한시간도 무한이 된다. 매치가 시작되면 해제된다.
 let bossChallengeArmed = false;
 let pendingBossMode = false;
+// 랜덤픽에서 히든 확률로 맥이 뽑혔는지 - 이 경우도 보스전처럼 제한시간을 무한으로 둔다
+// (맥은 원래 체력/맷집이 세게 설계된 보스라 짧은 제한시간 안에 2페이즈까지 다 싸우기 빠듯해서)
+let pendingSecretMac = false;
 const selectSubtitleEl = document.querySelector('#selectScreen .subtitle');
 const DEFAULT_SELECT_SUBTITLE = selectSubtitleEl ? selectSubtitleEl.textContent : '';
 
@@ -187,6 +190,7 @@ SELECTABLE_CHARACTERS.forEach(c => {
     SFX.menuClick();
     pendingCharId = c.id;
     pendingBossMode = bossChallengeArmed;
+    pendingSecretMac = false;
     bossChallengeArmed = false;
     if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
     selectScreen.classList.add('hidden');
@@ -201,10 +205,12 @@ SELECTABLE_CHARACTERS.forEach(c => {
 // 사람이 조작해도(p1) 라이더 모드/2페이즈 등 그대로 다 작동한다
 selectGrid.appendChild(buildRandomCard(() => {
   const secretMac = CHARACTERS.find(c => c.id === 'mac');
-  pendingCharId = (secretMac && Math.random() < 0.08)
+  const gotSecretMac = !!(secretMac && Math.random() < 0.08);
+  pendingCharId = gotSecretMac
     ? secretMac.id
     : SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   pendingBossMode = bossChallengeArmed;
+  pendingSecretMac = gotSecretMac;
   bossChallengeArmed = false;
   if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
   selectScreen.classList.add('hidden');
@@ -249,7 +255,7 @@ STAGES.forEach(s => {
     SFX.menuClick();
     currentStage = s;
     mapScreen.classList.add('hidden');
-    startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
+    startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode || pendingSecretMac);
   });
   mapGrid.appendChild(card);
 });
@@ -258,7 +264,7 @@ STAGES.forEach(s => {
 mapGrid.appendChild(buildRandomCard(() => {
   currentStage = STAGES[Math.floor(Math.random() * STAGES.length)];
   mapScreen.classList.add('hidden');
-  startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
+  startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode || pendingSecretMac);
 }));
 
 document.getElementById('mapBackBtn').addEventListener('click', () => {
