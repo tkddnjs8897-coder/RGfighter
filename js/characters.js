@@ -139,7 +139,10 @@ const CHARACTERS = [
       jump: { src: 'assets/characters/gura_ult_jump.png', dir: -1 },
       block: { src: 'assets/characters/gura_ult_block.png', dir: -1 }
     },
-    hp: 130,
+    // 다른 캐릭터들에 비해 전반적으로 약하다는 피드백으로 소폭 버프 - 체력을 살짝
+    // 올리고(130 -> 145) 방어력도 약간 단단하게(defenseMult 0.9)
+    hp: 145,
+    defenseMult: 0.9,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
       punch2: { name: '스트레이트', damage: 5, range: 190, startup: 10, active: 5, recovery: 16 },
@@ -147,8 +150,9 @@ const CHARACTERS = [
       kick2: { name: '하이킥', damage: 6, range: 220, startup: 14, active: 6, recovery: 20, guardType: 'high' },
       specials: [
         {
+          // 데미지 18 -> 21로 소폭 상향
           key: 'special1', name: '법의 심판', castText: '법의 심판', type: 'dash',
-          damage: 18, range: 140,
+          damage: 21, range: 140,
           startup: 12, active: 6, recovery: 18,
           gaugeCost: 35, color: '#c9a227',
           cooldown: 260
@@ -538,12 +542,13 @@ const CHARACTERS = [
       hitstun: { src: 'assets/characters/mac_phase2_hitstun.png', dir: -1 }
     },
     // 보스몹답게 다른 캐릭터(130)보다 체력이 훨씬 많고(260 -> 320), 맞아도 대미지가
-    // 덜 들어가며(방어력 0.65 -> 0.55), 이동속도/공격속도도 기본적으로 더 빠르다.
+    // 덜 들어가며(방어력 0.65 -> 0.55), 이동속도도 기본적으로 더 빠르다.
     // 맞아도 계속 얻어맞고만 있지 않도록 히트스턴도 다른 캐릭터의 절반만 받는다
+    // 공격속도는 너무 세다는 피드백으로 1.15 -> 1.05로 너프 (그래도 보스는 보스답게 유지)
     hp: 320,
     defenseMult: 0.55,
     speedMult: 1.15,
-    atkSpeedMult: 1.15,
+    atkSpeedMult: 1.05,
     hitstunMult: 0.5,
     moves: {
       punch1: { name: '잽', damage: 2, range: 150, startup: 5, active: 4, recovery: 9 },
@@ -589,7 +594,8 @@ const CHARACTERS = [
           startup: 18, active: 10, recovery: 22,
           gaugeCost: 40, color: '#a855f7',
           projectileShape: 'orb', projectileSpeed: 4, projectileLife: 240,
-          cooldown: 420
+          // 너무 자주 나온다는 피드백으로 쿨타임 420(7초) -> 600(10초)으로 늘림
+          cooldown: 600
         }
       ],
       // 라이더 모드 - 라이더 슈트(헬멧+재킷) 차림으로 변신해 60초간 싸운다. 지속시간 내내
