@@ -40,13 +40,14 @@ html, body {
 .hidden { display: none !important; }
 
 h1 {
-  font-size: 48px;
+  font-size: 54px;
   margin: 0 0 4px;
   letter-spacing: 2px;
   text-shadow: 3px 3px 0 #ff3b3b;
 }
 
-.subtitle { color: #aaa; margin: 0 0 24px; }
+/* 안내 문구가 너무 작아서 잘 안 보인다는 피드백으로 상향(기본 상속 크기 -> 명시적으로 키움) */
+.subtitle { color: #ccc; margin: 0 0 24px; font-size: 22px; font-weight: 600; }
 
 .selectGrid {
   display: flex;
@@ -146,14 +147,14 @@ h1 {
 
 .selectCard .charName {
   margin-top: 10px;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: bold;
 }
 
 .hint {
   margin-top: 28px;
-  color: #888;
-  font-size: 13px;
+  color: #aaa;
+  font-size: 16px;
 }
 
 #gameScreen {
