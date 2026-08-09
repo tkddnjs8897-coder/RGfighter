@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 42;
+const ASSET_VERSION = 43;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -196,12 +196,12 @@ SELECTABLE_CHARACTERS.forEach(c => {
 });
 
 // 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행.
-// 숨겨진 보스(맥)를 5% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
+// 숨겨진 보스(맥)를 8% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
 // CPU 전용 취급이 아니라 tryStartAction/applyHit 등이 전부 id 기준으로 동작해서
 // 사람이 조작해도(p1) 라이더 모드/2페이즈 등 그대로 다 작동한다
 selectGrid.appendChild(buildRandomCard(() => {
   const secretMac = CHARACTERS.find(c => c.id === 'mac');
-  pendingCharId = (secretMac && Math.random() < 0.05)
+  pendingCharId = (secretMac && Math.random() < 0.08)
     ? secretMac.id
     : SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   pendingBossMode = bossChallengeArmed;
