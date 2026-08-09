@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 48;
+const ASSET_VERSION = 49;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -2433,6 +2433,25 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 아예 poseSprites(평상시 전용 사진)로 폴백하도록 예외 처리하는 상태 목록
 const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun', 'groggy'];
 
+// 맥을 사람이 직접 조작할 때만(랜덤픽, CPU가 아닐 때만) 실제 플레이해보니 라이더
+// 모드는 걷기 자세만, 철거오야지 모드는 공격 4종(펀치1/2, 킥1/2)만 방향이 반대로
+// 보인다는 피드백 - 걷기는 f.walkDir(사람은 실제 눌린 키 방향, CPU는 항상 상대를
+// 향하는 방향)을 쓰는데 이 둘의 부호 규칙이 서로 달라서 생기는 차이로 보인다.
+// 해당 상태의 사진만 한정해서 dir을 반전시켜 보정하고, 맥에게 도전(CPU)은 건드리지 않는다
+const MAC_HUMAN_FLIP_STATES = {
+  riderForm: ['walk'],
+  phase2Form: ['punch1', 'punch2', 'kick1', 'kick2']
+};
+function maybeFlipMacHumanEntry(f, formKey, entry) {
+  if (f.data.id === 'mac' && !f.isCPU && entry) {
+    const flipStates = MAC_HUMAN_FLIP_STATES[formKey];
+    if (flipStates && flipStates.includes(f.state)) {
+      return Object.assign({}, entry, { dir: -(entry.dir || 1) });
+    }
+  }
+  return entry;
+}
+
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
@@ -2462,7 +2481,7 @@ function resolveFighterSprite(f) {
       const hasOwn = !!formSet[f.state];
       if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
         const entry = formSet[f.state] || formSet.idle;
-        if (isUsable(entry && entry.img)) return entry;
+        if (isUsable(entry && entry.img)) return maybeFlipMacHumanEntry(f, formKey, entry);
       }
     }
   }
@@ -2482,7 +2501,7 @@ function resolveFighterSprite(f) {
     const hasOwn = !!formSet[f.state];
     if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
       const entry = formSet[f.state] || formSet.idle;
-      if (isUsable(entry && entry.img)) return entry;
+      if (isUsable(entry && entry.img)) return maybeFlipMacHumanEntry(f, 'phase2Form', entry);
     }
   }
   const poseEntry = f.data.poseSprites && f.data.poseSprites[f.state];
