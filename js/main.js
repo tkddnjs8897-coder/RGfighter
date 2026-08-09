@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 36;
+const ASSET_VERSION = 37;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -447,6 +447,7 @@ function startMatch(playerCharId, forcedCpuId, infiniteTime) {
   ultBannerFadeSlow = false;
   introPhase = 'ready';
   introTimer = 700;
+  BGM.playRandom();
 
   hud.p1Portrait.src = playerData.portrait;
   hud.p1Portrait.style.objectPosition = playerData.portraitCropTop ? 'center 10%' : 'center center';
@@ -491,6 +492,7 @@ retryBtn.addEventListener('click', () => {
   selectScreen.classList.remove('hidden');
   touchControlsEl.classList.add('hidden');
   running = false;
+  BGM.stop();
 });
 
 // ----- 메인 루프 -----
@@ -981,6 +983,7 @@ function triggerKO(winner) {
 
 function endMatch(winner) {
   running = false;
+  BGM.stop();
   gameScreen.classList.add('hidden');
   resultScreen.classList.remove('hidden');
   touchControlsEl.classList.add('hidden');
