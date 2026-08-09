@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 46;
+const ASSET_VERSION = 47;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -2435,6 +2435,17 @@ const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun', 'grog
 
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
+// 맥의 riderForm/phase2Form 사진들은 전부 맥이 "맥에게 도전" 보스전(항상 CPU, 오른쪽에서
+// 시작)에서만 등장하던 시절에 좌우를 맞춰놨던 사진들이라, 랜덤픽으로 사람이 맥을 직접
+// 조작(왼쪽에서 시작)하게 되면 좌우가 반대로 보인다. 사람이 조작할 때만(CPU가 아닐 때만)
+// 이 두 폼 한정으로 dir을 반전시켜서 보정하고, 원본 데이터는 건드리지 않는다(얕은 복사)
+function maybeFlipMacHumanForm(f, entry) {
+  if (f.data.id === 'mac' && !f.isCPU && entry) {
+    return Object.assign({}, entry, { dir: -(entry.dir || 1) });
+  }
+  return entry;
+}
+
 function resolveFighterSprite(f) {
   // 필살기 자체에 phase별(시전/타격/후딜) 전용 사진이 지정돼 있으면(예: 오토바이 소환->탑승 돌진)
   // 다른 무엇보다 최우선으로 사용
@@ -2462,7 +2473,7 @@ function resolveFighterSprite(f) {
       const hasOwn = !!formSet[f.state];
       if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
         const entry = formSet[f.state] || formSet.idle;
-        if (isUsable(entry && entry.img)) return entry;
+        if (isUsable(entry && entry.img)) return maybeFlipMacHumanForm(f, entry);
       }
     }
   }
@@ -2482,7 +2493,7 @@ function resolveFighterSprite(f) {
     const hasOwn = !!formSet[f.state];
     if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
       const entry = formSet[f.state] || formSet.idle;
-      if (isUsable(entry && entry.img)) return entry;
+      if (isUsable(entry && entry.img)) return maybeFlipMacHumanForm(f, entry);
     }
   }
   const poseEntry = f.data.poseSprites && f.data.poseSprites[f.state];
