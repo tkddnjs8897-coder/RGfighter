@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 37;
+const ASSET_VERSION = 38;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -361,6 +361,8 @@ class Fighter {
     // visualForm 같은 변신별 세부 설정을 f.data.moves.ultimate 하나에만 있다고 가정하지 않고
     // 실제로 변신을 시작한 move 객체에서 바로 읽기 위함 (필살기 슬롯에서 변신을 걸 수도 있으므로)
     this.transformMove = null;
+    // 변신 중 주기적으로 대사를 띄우는 연출(move.periodicText)용 카운터
+    this.transformTextTimer = 0;
     // 변신 궁극기가 끝난 뒤 이어서 발동되는 2단계 부작용(예: 요요현상) 지속시간
     this.yoyoTimer = 0;
     // 궁극기가 즉발이 아니라 스택형(예: 안형준의 꿈1/꿈2 -> 빛 모드)인 캐릭터용 스택 카운터
@@ -867,6 +869,14 @@ function processStatusEffects(f, opp) {
   if (f.transformTimer > 0) {
     f.transformTimer--;
     if (Math.random() < 0.3) spawnParticles(f.x, GROUND_Y - 10, '#2b6fd6', 1, 'spark');
+    // 변신 지속 중 주기적으로 대사를 띄우는 연출 (opt-in: move.periodicText) - 예: 맥 라이더 모드
+    if (f.transformMove && f.transformMove.periodicText) {
+      f.transformTextTimer = (f.transformTextTimer || 0) + 1;
+      if (f.transformTextTimer >= (f.transformMove.periodicTextInterval || 150)) {
+        f.transformTextTimer = 0;
+        spawnFloatingText(f.x, GROUND_Y - 300, f.transformMove.periodicText, f.transformMove.color || '#fff');
+      }
+    }
     if (f.transformTimer <= 0) {
       // yoyo(변신 후 부작용 단계) 설정은 f.data.moves.ultimate 고정이 아니라, 실제로 변신을
       // 시작시킨 move(transformMove) 기준으로 읽는다 - 필살기 슬롯에서 건 변신도 지원하기 위함
@@ -1619,6 +1629,7 @@ function updateFighter(f, opp) {
         f.yoyoTimer = 0;
         f.transformMove = move;
         f.transformTimer = move.duration;
+        f.transformTextTimer = 0;
         // 캐릭터 기본 배율(f.data.xxxMult) 위에 변신 배율을 곱해서 적용 - 그냥 덮어쓰면
         // 맥처럼 기본 배율이 있는 보스는 변신 중에 오히려 약해지는 역효과가 남 (토템과 동일한 이유)
         f.dmgMult = (f.data.dmgMult || 1) * (move.dmgMult || 1);
