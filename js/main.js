@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 35;
+const ASSET_VERSION = 36;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -626,8 +626,9 @@ function tryStartAction(f, key) {
   if (key.startsWith('special')) {
     f.specialGauge = Math.max(0, f.specialGauge - move.gaugeCost);
     if (move.cooldown) f.cooldowns[key] = move.cooldown;
+    SFX.castSpecial();
   }
-  else if (key === 'ultimate') f.ultGauge = 0;
+  else if (key === 'ultimate') { f.ultGauge = 0; SFX.castUltimate(); }
 }
 
 function tickCooldowns(f) {
@@ -680,6 +681,7 @@ function applyHit(attacker, defender, move, opts) {
     const counterDmg = defender.actionMove.counterDamage || 15;
     attacker.hp = Math.max(0, attacker.hp - counterDmg);
     attacker.hitFlash = 10;
+    SFX.bigHit();
     spawnParticles(attacker.x, GROUND_Y - 120, defender.actionMove.color || '#5b7fa6', 16, 'hit');
     shake.time = 10; shake.mag = 8;
     hitStop = 8; zoom = 1.12;
@@ -717,6 +719,7 @@ function applyHit(attacker, defender, move, opts) {
     const noDamageBlock = !!(defender.transformMove && defender.transformMove.blockNoDamage);
     dmg = noDamageBlock ? 0 : Math.max(1, Math.round(dmg * 0.15));
     defender.hp = Math.max(0, defender.hp - dmg);
+    SFX.block();
     spawnParticles(defender.x + (-defender.facing * 40), GROUND_Y - 120, '#3bd6ff', 8, 'spark');
     spawnFloatingText(defender.x, GROUND_Y - 220, noDamageBlock ? '카운터!' : '방어함', '#3bd6ff');
     shake.time = 6; shake.mag = 3;
@@ -734,6 +737,10 @@ function applyHit(attacker, defender, move, opts) {
 
     defender.hp = Math.max(0, defender.hp - dmg);
     defender.hitFlash = 10;
+    // 타격음: 필살기/궁극기/투사체에 맞았을 땐 더 무거운 소리로, 기본기는 펀치/킥을 구분해서
+    if (opts.projectile || attacker.state.startsWith('special') || attacker.state === 'ultimate') SFX.bigHit();
+    else if (attacker.state.startsWith('kick')) SFX.kick();
+    else SFX.punch();
     // 피규어 토템: 소유자가 맞을 때마다 토템도 함께 타격받은 것으로 쳐서 내구도를 깎는다
     // (기본 공격은 3번 맞아야 사라지지만, 필살기/궁극기 등 스킬에 맞으면 단번에 파괴된다)
     if (defender.totem && defender.totem.hitsLeft > 0) {
@@ -774,6 +781,7 @@ function applyHit(attacker, defender, move, opts) {
       defender.sealedMoves = defender.sealedMoves || {};
       defender.sealedMoves[sealKey] = move.sealDuration || 1200;
       spawnFloatingText(defender.x, GROUND_Y - 260, '스킬 봉인', move.color || '#a855f7');
+      SFX.seal();
     }
 
     // 궁극기(변신) 상태에서 때리면 화려한 붉은 피격 이펙트를 낸다 (move.bloodOnHit 로 캐릭터별 opt-in)
@@ -967,6 +975,7 @@ function triggerKO(winner) {
   if (matchOver) return;
   matchOver = true;
   koBannerTimer = 900;
+  SFX.ko();
   setTimeout(() => endMatch(winner), 900);
 }
 
@@ -1236,7 +1245,7 @@ function handleFighterInput(f, opp, isCPU) {
         else if (f.height > 0) { f.state = 'jump'; }
       } else {
         // 점프 시작: 좌/우를 같이 눌러도(대각선 점프) 이 프레임에 바로 반영
-        if (keys['ArrowUp'] && f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
+        if (keys['ArrowUp'] && f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; SFX.jump(); }
       }
 
       // 좌우 이동: 땅/공중 모두 적용 (공중에서는 대각선 점프 궤적 제어용 공중 이동)
@@ -1329,7 +1338,7 @@ function runAI(f, opp) {
       break;
     }
     case 'jump':
-      if (f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; }
+      if (f.isGrounded) { f.vy = JUMP_V; f.state = 'jump'; SFX.jump(); }
       break;
     case 'block':
       f.state = Math.random() < 0.4 ? 'crouch' : 'block';
@@ -1415,6 +1424,7 @@ function updateFighter(f, opp) {
       if (move.type === 'projectile') {
         const count = move.projectileCount || 1;
         const isSprite = (move.projectileShape || 'orb') === 'sprite';
+        SFX.projectile();
         for (let i = 0; i < count; i++) {
           projectiles.push({
             x: f.x + f.actionFacing * 90,
