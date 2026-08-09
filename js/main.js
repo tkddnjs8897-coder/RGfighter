@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 30;
+const ASSET_VERSION = 31;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -102,6 +102,10 @@ CHARACTERS.forEach(c => {
   // 빛의용사 형준처럼 별도 visualForm으로 지정되는 변신 전용 이미지 세트
   if (c.lightForm) {
     Object.values(c.lightForm).forEach(p => { p.img = loadImage(p.src); });
+  }
+  // 맥의 라이더 모드(궁극기) 전용 이미지 세트
+  if (c.riderForm) {
+    Object.values(c.riderForm).forEach(p => { p.img = loadImage(p.src); });
   }
   // 필살기/궁극기 중 실제 영상(블랙박스 등) 클립처럼 여러 장을 순서대로 보여주는 연출이 있으면 미리 로드
   const allMoves = [...c.moves.specials, c.moves.ultimate];
@@ -205,7 +209,7 @@ if (macBossData) {
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
     bossChallengeArmed = true;
-    if (selectSubtitleEl) selectSubtitleEl.textContent = '맥에게 도전! 함께 싸울 캐릭터를 선택하세요';
+    if (selectSubtitleEl) selectSubtitleEl.textContent = '맥에게 도전할 라갤러를 선택하세요!';
   });
   selectGrid.appendChild(card);
 }
@@ -396,6 +400,8 @@ let introPhase = null; // 'ready' -> 'go' -> null(전투 시작)
 let introTimer = 0;
 let flashTime = 0, flashColor = '#fff';
 let ultBannerTimer = 0, ultBannerText = '', ultBannerColor = '#fff', ultBannerSize = 64;
+// 라이더 모드처럼 배너가 뚝 끊기지 않고 천천히 투명해지며 사라지는 연출용
+let ultBannerFadeSlow = false, ultBannerFadeTotal = 1;
 // 스택형 궁극기(꿈1/꿈2 등)의 스택을 쌓을 때, 그 스택에 연결된 사진을 화면 중앙 위쪽에
 // 잠깐 크게 띄워서 보여주는 연출용 상태
 let ultCutsceneImg = null, ultCutsceneTimer = 0, ultCutsceneColor = '#fff';
@@ -438,6 +444,7 @@ function startMatch(playerCharId, forcedCpuId, infiniteTime) {
   flashTime = 0;
   ultBannerTimer = 0;
   ultBannerSize = 64;
+  ultBannerFadeSlow = false;
   introPhase = 'ready';
   introTimer = 700;
 
@@ -580,8 +587,10 @@ function tryStartAction(f, key) {
   }
   if (!move) return;
 
-  // 방향 무시(ignoreFacing) 기술은 판정만 전방위일 뿐, 연출은 실제로 상대를 바라보며 시전해야 자연스럽다
-  if (move.ignoreFacing) {
+  // 방향 무시(ignoreFacing) 기술은 판정만 전방위일 뿐, 연출은 실제로 상대를 바라보며 시전해야 자연스럽다.
+  // faceOpponentOnCast는 판정과 무관하게(방향성 있는 기술이라도) 시전 연출만 상대를 정확히
+  // 바라보도록 강제로 다시 계산하는 플래그 - 손가락/얼굴이 상대를 향해야 하는 스킬(소환/포인팅 등)에 사용
+  if (move.ignoreFacing || move.faceOpponentOnCast) {
     const opp = f === p1 ? p2 : p1;
     f.facing = opp.x >= f.x ? 1 : -1;
   }
@@ -705,9 +714,10 @@ function applyHit(attacker, defender, move, opts) {
     defender.hp = Math.max(0, defender.hp - dmg);
     defender.hitFlash = 10;
     // 피규어 토템: 소유자가 맞을 때마다 토템도 함께 타격받은 것으로 쳐서 내구도를 깎는다
-    // (3번 맞으면 사라짐 - hitsLeft가 0이 되는 순간은 processStatusEffects에서 정리)
+    // (기본 공격은 3번 맞아야 사라지지만, 필살기/궁극기 등 스킬에 맞으면 단번에 파괴된다)
     if (defender.totem && defender.totem.hitsLeft > 0) {
-      defender.totem.hitsLeft--;
+      const isSkillHit = !!opts.projectile || attacker.state.startsWith('special') || attacker.state === 'ultimate';
+      defender.totem.hitsLeft = isSkillHit ? 0 : defender.totem.hitsLeft - 1;
       spawnParticles(defender.totem.x, GROUND_Y - 80, '#ffffff', 10, 'spark');
     }
     if (!hasArmor) {
@@ -1437,7 +1447,12 @@ function updateFighter(f, opp) {
           if (bannerText) {
             ultBannerText = bannerText;
             ultBannerColor = bannerColor;
-            ultBannerTimer = isFinalActivation ? 90 : 50;
+            // 라이더 모드(맥)처럼 bannerSlowFade가 있는 기술은 텍스트가 뚝 끊기지 않고
+            // 오래 떠 있다가 서서히 투명해지며 사라진다 (일반 배너는 기존처럼 그대로 뚝 사라짐)
+            const activeMove = isFinalActivation ? move.finalForm : move;
+            ultBannerFadeSlow = !!(activeMove && activeMove.bannerSlowFade);
+            ultBannerTimer = ultBannerFadeSlow ? (activeMove.bannerFadeFrames || 300) : (isFinalActivation ? 90 : 50);
+            ultBannerFadeTotal = ultBannerTimer;
             // 즉사기(궁극포)처럼 유독 강조하고 싶은 기술은 move.bannerBig으로 텍스트를 더 크게
             ultBannerSize = move.bannerBig ? 96 : 64;
           }
@@ -1570,10 +1585,12 @@ function updateFighter(f, opp) {
         f.yoyoTimer = 0;
         f.transformMove = move;
         f.transformTimer = move.duration;
-        f.dmgMult = move.dmgMult || 1;
-        f.speedMult = move.speedMult || 1;
-        f.atkSpeedMult = move.atkSpeedMult || 1;
-        f.defenseMult = move.defenseMult || 1;
+        // 캐릭터 기본 배율(f.data.xxxMult) 위에 변신 배율을 곱해서 적용 - 그냥 덮어쓰면
+        // 맥처럼 기본 배율이 있는 보스는 변신 중에 오히려 약해지는 역효과가 남 (토템과 동일한 이유)
+        f.dmgMult = (f.data.dmgMult || 1) * (move.dmgMult || 1);
+        f.speedMult = (f.data.speedMult || 1) * (move.speedMult || 1);
+        f.atkSpeedMult = (f.data.atkSpeedMult || 1) * (move.atkSpeedMult || 1);
+        f.defenseMult = (f.data.defenseMult || 1) * (move.defenseMult || 1);
         // 변신 발동 시 소량 회복(opt-in) - 예: 신지드 모드, 메카 모드, 일본-좆킴
         if (move.healOnActivate) f.hp = Math.min(f.data.hp, f.hp + move.healOnActivate);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
@@ -2026,7 +2043,10 @@ function draw() {
 
   if (introPhase) drawBanner(introPhase === 'ready' ? 'READY' : 'GO!', introPhase === 'ready' ? '#ffffff' : '#ffd166');
   else if (koBannerTimer > 0) drawBanner('K.O.', '#ff3b3b');
-  else if (ultBannerTimer > 0) drawBanner(ultBannerText, ultBannerColor, ultBannerSize);
+  else if (ultBannerTimer > 0) {
+    const bannerAlpha = ultBannerFadeSlow ? Math.max(0, ultBannerTimer / ultBannerFadeTotal) : 1;
+    drawBanner(ultBannerText, ultBannerColor, ultBannerSize, bannerAlpha);
+  }
 
   // 스택형 궁극기 회상 사진(꿈1/꿈2 등)은 텍스트 배너와 별개로, 겹쳐서도 함께 보여준다
   if (ultCutsceneTimer > 0) drawUltCutscene(ultCutsceneImg, ultCutsceneColor, ultCutsceneTimer);
@@ -2062,6 +2082,25 @@ function drawTotem(f) {
   ctx.shadowBlur = 22;
   ctx.drawImage(img, -w / 2, -h, w, h);
   ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // 머리 위 3칸 HP 핍 - 몇 대 더 맞으면 파괴되는지 한눈에 보이게 (기본 공격 1대당 1칸)
+  const maxHits = move.totemHits || 3;
+  const pipW = 22, pipH = 8, gap = 6;
+  const totalW = maxHits * pipW + (maxHits - 1) * gap;
+  const pipY = groundY + dropY - h - 16;
+  const pipStartX = totem.x - totalW / 2;
+  ctx.save();
+  for (let i = 0; i < maxHits; i++) {
+    const px = pipStartX + i * (pipW + gap);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(px - 2, pipY - 2, pipW + 4, pipH + 4);
+    ctx.fillStyle = i < totem.hitsLeft ? (move.color || '#dc2626') : '#2a2a2a';
+    ctx.fillRect(px, pipY, pipW, pipH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px, pipY, pipW, pipH);
+  }
   ctx.restore();
 }
 
@@ -2163,8 +2202,9 @@ function drawFlash() {
 }
 
 // 화면 중앙에 큼직하게 뜨는 배너(READY / GO! / K.O.)
-function drawBanner(text, color, size) {
+function drawBanner(text, color, size, alpha) {
   ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${size || 64}px sans-serif`;
