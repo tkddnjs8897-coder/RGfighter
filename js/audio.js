@@ -239,11 +239,27 @@ const SFX = (() => {
     osc.start(now); osc.stop(now + 0.16);
   }
 
+  // 캐릭터/맵 선택, 다시하기 등 메뉴 클릭용 짧고 가벼운 블립음
+  function menuClick() {
+    const ctx = ensureCtx();
+    const now = ctx.currentTime;
+    const master = masterGain(ctx, 0.35);
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.05);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.5, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    osc.connect(g).connect(master);
+    osc.start(now); osc.stop(now + 0.08);
+  }
+
   return {
     punch, kick, bigHit, block,
     castSpecial: () => cast(false),
     castUltimate: () => cast(true),
-    projectile, seal, ko, jump,
+    projectile, seal, ko, jump, menuClick,
     setVolume(v) { masterVol = Math.max(0, Math.min(1, v)); }
   };
 })();

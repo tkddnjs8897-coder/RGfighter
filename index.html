@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>라갤러파이트</title>
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -72,6 +72,11 @@
 
   <!-- 결과 화면 -->
   <div id="resultScreen" class="screen hidden">
+    <div class="resultPortraits">
+      <img id="resultPlayerPortrait" class="resultPortrait player" />
+      <span class="resultVs">VS</span>
+      <img id="resultOpponentPortrait" class="resultPortrait opponent" />
+    </div>
     <h1 id="resultText">WIN</h1>
     <button id="retryBtn">다시하기</button>
   </div>
@@ -103,8 +108,8 @@
   </div>
 </div>
 
-<script src="js/audio.js?v=3"></script>
-<script src="js/characters.js?v=85"></script>
-<script src="js/main.js?v=85"></script>
+<script src="js/audio.js?v=4"></script>
+<script src="js/characters.js?v=86"></script>
+<script src="js/main.js?v=86"></script>
 </body>
 </html>

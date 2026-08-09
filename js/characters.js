@@ -95,7 +95,9 @@ const CHARACTERS = [
         startup: 16, active: 10, recovery: 20,
         color: '#a8ff3b',
         // 변신(신지드-모드) 발동 시 소량 체력 회복
-        healOnActivate: 20
+        healOnActivate: 20,
+        // 발동 순간 머리 위에 한 번 뜨는 대사
+        activationText: '뿡-꺾'
       }
     }
   },
@@ -270,7 +272,9 @@ const CHARACTERS = [
         // 변신 중 공격 판정에 들어가 있을 때 맞아도 경직/넉백 없이 공격을 계속 이어간다
         hyperArmor: true,
         // 변신(일본-좆킴) 발동 시 소량 체력 회복
-        healOnActivate: 20
+        healOnActivate: 20,
+        // 발동 순간 머리 위에 한 번 뜨는 대사
+        activationText: '역시 조선은 ♥'
       }
     }
   },

@@ -613,7 +613,82 @@ html.is-touch .portrait { width: 40px; height: 40px; }
   margin-right: 4px;
 }
 
+#resultScreen {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 결과에 따라(승/패/무승부) 은은하게 펄스치는 배경 글로우 */
+#resultScreen::before {
+  content: '';
+  position: absolute;
+  inset: -25%;
+  background: radial-gradient(circle, rgba(124, 252, 0, 0.22) 0%, transparent 62%);
+  animation: resultGlowPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+#resultScreen.lose::before { background: radial-gradient(circle, rgba(255, 59, 59, 0.22) 0%, transparent 62%); }
+#resultScreen.draw::before { background: radial-gradient(circle, rgba(200, 200, 200, 0.16) 0%, transparent 62%); }
+
+@keyframes resultGlowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.16); opacity: 1; }
+}
+
+.resultPortraits {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.resultPortrait {
+  border-radius: 50%;
+  object-fit: cover;
+  background: #222;
+}
+.resultPortrait.player {
+  width: 116px;
+  height: 116px;
+  border: 4px solid #7CFC00;
+  box-shadow: 0 0 26px rgba(124, 252, 0, 0.55);
+  animation: resultPortraitPop 0.55s cubic-bezier(.34, 1.56, .64, 1);
+}
+#resultScreen.lose .resultPortrait.player {
+  border-color: #ff3b3b;
+  box-shadow: 0 0 26px rgba(255, 59, 59, 0.55);
+}
+#resultScreen.draw .resultPortrait.player {
+  border-color: #ccc;
+  box-shadow: 0 0 20px rgba(200, 200, 200, 0.45);
+}
+.resultPortrait.opponent {
+  width: 72px;
+  height: 72px;
+  border: 3px solid #444;
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+.resultVs {
+  font-size: 15px;
+  font-weight: 700;
+  color: #888;
+  letter-spacing: 1px;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes resultPortraitPop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 #resultScreen h1 {
+  position: relative;
+  z-index: 1;
   font-size: 72px;
   animation: resultPop 0.5s cubic-bezier(.34, 1.56, .64, 1);
 }

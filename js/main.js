@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 41;
+const ASSET_VERSION = 42;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -57,6 +57,8 @@ const mkUltEl = document.getElementById('mkUlt');
 const selectGrid = document.getElementById('selectGrid');
 const mapGrid = document.getElementById('mapGrid');
 const resultText = document.getElementById('resultText');
+const resultPlayerPortrait = document.getElementById('resultPlayerPortrait');
+const resultOpponentPortrait = document.getElementById('resultOpponentPortrait');
 const retryBtn = document.getElementById('retryBtn');
 const timerEl = document.getElementById('timer');
 
@@ -162,7 +164,7 @@ function buildRandomCard(onPick) {
   nameEl.textContent = '랜덤';
   card.appendChild(icon);
   card.appendChild(nameEl);
-  card.addEventListener('click', onPick);
+  card.addEventListener('click', () => { SFX.menuClick(); onPick(); });
   return card;
 }
 
@@ -182,6 +184,7 @@ SELECTABLE_CHARACTERS.forEach(c => {
   card.appendChild(img);
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
+    SFX.menuClick();
     pendingCharId = c.id;
     pendingBossMode = bossChallengeArmed;
     bossChallengeArmed = false;
@@ -192,9 +195,15 @@ SELECTABLE_CHARACTERS.forEach(c => {
   selectGrid.appendChild(card);
 });
 
-// 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행
+// 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행.
+// 숨겨진 보스(맥)를 5% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
+// CPU 전용 취급이 아니라 tryStartAction/applyHit 등이 전부 id 기준으로 동작해서
+// 사람이 조작해도(p1) 라이더 모드/2페이즈 등 그대로 다 작동한다
 selectGrid.appendChild(buildRandomCard(() => {
-  pendingCharId = SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
+  const secretMac = CHARACTERS.find(c => c.id === 'mac');
+  pendingCharId = (secretMac && Math.random() < 0.05)
+    ? secretMac.id
+    : SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   pendingBossMode = bossChallengeArmed;
   bossChallengeArmed = false;
   if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
@@ -218,6 +227,7 @@ if (macBossData) {
   card.appendChild(img);
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
+    SFX.menuClick();
     bossChallengeArmed = true;
     if (selectSubtitleEl) selectSubtitleEl.textContent = '맥에게 도전할 라갤러를 선택하세요!';
   });
@@ -236,6 +246,7 @@ STAGES.forEach(s => {
   card.appendChild(img);
   card.appendChild(nameEl);
   card.addEventListener('click', () => {
+    SFX.menuClick();
     currentStage = s;
     mapScreen.classList.add('hidden');
     startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
@@ -251,6 +262,7 @@ mapGrid.appendChild(buildRandomCard(() => {
 }));
 
 document.getElementById('mapBackBtn').addEventListener('click', () => {
+  SFX.menuClick();
   mapScreen.classList.add('hidden');
   selectScreen.classList.remove('hidden');
 });
@@ -504,6 +516,7 @@ function startMatch(playerCharId, forcedCpuId, infiniteTime) {
 }
 
 retryBtn.addEventListener('click', () => {
+  SFX.menuClick();
   resultScreen.classList.add('hidden');
   selectScreen.classList.remove('hidden');
   touchControlsEl.classList.add('hidden');
@@ -1082,15 +1095,27 @@ function endMatch(winner) {
   gameScreen.classList.add('hidden');
   resultScreen.classList.remove('hidden');
   touchControlsEl.classList.add('hidden');
+
+  // 결과 화면이 텍스트 하나만 덩그러니 있던 게 밋밋하다는 피드백으로, 플레이어(p1)
+  // 초상화를 결과 색상 테두리로 크게 강조하고 상대(p2) 초상화는 작게 곁들여서 보여준다
+  resultPlayerPortrait.src = p1.data.portrait;
+  resultPlayerPortrait.style.objectPosition = p1.data.portraitCropTop ? 'center 10%' : 'center center';
+  resultOpponentPortrait.src = p2.data.portrait;
+  resultOpponentPortrait.style.objectPosition = p2.data.portraitCropTop ? 'center 10%' : 'center center';
+  resultScreen.classList.remove('win', 'lose', 'draw');
+
   if (!winner) {
     resultText.textContent = '무승부';
     resultText.style.color = '#ccc';
+    resultScreen.classList.add('draw');
   } else if (winner === p1) {
     resultText.textContent = 'WIN';
     resultText.style.color = '#7CFC00';
+    resultScreen.classList.add('win');
   } else {
     resultText.textContent = 'LOSE';
     resultText.style.color = '#ff3b3b';
+    resultScreen.classList.add('lose');
   }
 }
 
@@ -1610,7 +1635,9 @@ function updateFighter(f, opp) {
         } else {
           // 파티클/글로우는 기술 고유 색(fxColor) 유지하되, 글자는 너무 어두우면 안 보이니
           // 필요하면 move.textColor로 따로 밝은 색을 지정할 수 있게 함
-          if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, move.textColor || fxColor);
+          // 필살기 시전 텍스트는 너무 빨리 사라진다는 피드백으로(기본 42프레임) 조금 더
+          // 오래(75프레임≈1.25초) 머물다 사라지게 함 - 너무 길게 늘리면 오히려 답답해서 적당히
+          if (move.castText) spawnFloatingText(f.x, GROUND_Y - 260, move.castText, move.textColor || fxColor, 75);
           spawnRing(f.x, GROUND_Y - 120, fxColor, 100, 22);
         }
       }
@@ -1704,6 +1731,8 @@ function updateFighter(f, opp) {
         f.auraTick = 0;
         // 변신 발동 시 소량 회복(opt-in) - 예: 신지드 모드, 메카 모드, 일본-좆킴
         if (move.healOnActivate) f.hp = Math.min(f.data.hp, f.hp + move.healOnActivate);
+        // 변신 발동 순간 캐릭터 머리 위에 한 번 뜨는 대사(opt-in) - 예: 신지드 모드 "뿡-꺾"
+        if (move.activationText) spawnFloatingText(f.x, GROUND_Y - 300, move.activationText, move.activationTextColor || move.color || '#fff', 80);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#a8ff3b', 16, 'hit');
       } else if (move.type === 'transform' && !f.effectApplied) {
         f.effectApplied = true;
@@ -1723,6 +1752,8 @@ function updateFighter(f, opp) {
         f.defenseMult = (f.data.defenseMult || 1) * (move.defenseMult || 1);
         // 변신 발동 시 소량 회복(opt-in) - 예: 신지드 모드, 메카 모드, 일본-좆킴
         if (move.healOnActivate) f.hp = Math.min(f.data.hp, f.hp + move.healOnActivate);
+        // 변신 발동 순간 캐릭터 머리 위에 한 번 뜨는 대사(opt-in) - 예: 일본-좆킴 "역시 조선은 ♥"
+        if (move.activationText) spawnFloatingText(f.x, GROUND_Y - 300, move.activationText, move.activationTextColor || move.color || '#fff', 80);
         spawnParticles(f.x, GROUND_Y - 120, move.color || '#2b6fd6', 20, 'hit');
       } else if (move.type === 'stackTransform' && !f.effectApplied) {
         // 스택형 궁극기: 즉발 변신이 아니라 쓸 때마다 스택이 1씩 쌓이고(꿈1->꿈2, 아무 효과 없음),
@@ -1909,8 +1940,8 @@ function drawProp(p) {
 }
 
 // 대미지 텍스트 대신 짧은 상태 문구(예: "방어함")를 위로 떠오르며 표시
-function spawnFloatingText(x, y, text, color) {
-  floatingTexts.push({ x, y, text, color: color || '#ffffff', life: 0, maxLife: 42 });
+function spawnFloatingText(x, y, text, color, maxLife) {
+  floatingTexts.push({ x, y, text, color: color || '#ffffff', life: 0, maxLife: maxLife || 42 });
 }
 function updateFloatingTexts() {
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
