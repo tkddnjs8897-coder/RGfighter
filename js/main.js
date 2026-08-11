@@ -1,7 +1,7 @@
 // ===== 라갤러파이트 게임 엔진 =====
 
 // 이미지 캐릭터 이미지 수정 후에도 브라우저 캐시 때문에 옛날 파일이 계속 보이는 문제 방지
-const ASSET_VERSION = 49;
+const ASSET_VERSION = 50;
 
 const STAGE_W = 960;
 const STAGE_H = 540;
@@ -149,9 +149,6 @@ let pendingCharId = null;
 // 상대가 랜덤 CPU가 아니라 맥으로 고정되고, 제한시간도 무한이 된다. 매치가 시작되면 해제된다.
 let bossChallengeArmed = false;
 let pendingBossMode = false;
-// 랜덤픽에서 히든 확률로 맥이 뽑혔는지 - 이 경우도 보스전처럼 제한시간을 무한으로 둔다
-// (맥은 원래 체력/맷집이 세게 설계된 보스라 짧은 제한시간 안에 2페이즈까지 다 싸우기 빠듯해서)
-let pendingSecretMac = false;
 const selectSubtitleEl = document.querySelector('#selectScreen .subtitle');
 const DEFAULT_SELECT_SUBTITLE = selectSubtitleEl ? selectSubtitleEl.textContent : '';
 
@@ -190,7 +187,6 @@ SELECTABLE_CHARACTERS.forEach(c => {
     SFX.menuClick();
     pendingCharId = c.id;
     pendingBossMode = bossChallengeArmed;
-    pendingSecretMac = false;
     bossChallengeArmed = false;
     if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
     selectScreen.classList.add('hidden');
@@ -200,17 +196,10 @@ SELECTABLE_CHARACTERS.forEach(c => {
 });
 
 // 캐릭터 랜덤 선택 - 클릭 즉시 실제 캐릭터 하나를 뽑아서 그대로 진행.
-// 숨겨진 보스(맥)를 8% 확률로 직접 플레이할 수 있는 히든 확률도 섞여있다 - 맥은
-// CPU 전용 취급이 아니라 tryStartAction/applyHit 등이 전부 id 기준으로 동작해서
-// 사람이 조작해도(p1) 라이더 모드/2페이즈 등 그대로 다 작동한다
+// (맥은 랜덤 풀에 포함되지 않는다 - "맥에게 도전"으로만 만날 수 있는 전용 보스)
 selectGrid.appendChild(buildRandomCard(() => {
-  const secretMac = CHARACTERS.find(c => c.id === 'mac');
-  const gotSecretMac = !!(secretMac && Math.random() < 0.08);
-  pendingCharId = gotSecretMac
-    ? secretMac.id
-    : SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
+  pendingCharId = SELECTABLE_CHARACTERS[Math.floor(Math.random() * SELECTABLE_CHARACTERS.length)].id;
   pendingBossMode = bossChallengeArmed;
-  pendingSecretMac = gotSecretMac;
   bossChallengeArmed = false;
   if (selectSubtitleEl) selectSubtitleEl.textContent = DEFAULT_SELECT_SUBTITLE;
   selectScreen.classList.add('hidden');
@@ -255,7 +244,7 @@ STAGES.forEach(s => {
     SFX.menuClick();
     currentStage = s;
     mapScreen.classList.add('hidden');
-    startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode || pendingSecretMac);
+    startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
   });
   mapGrid.appendChild(card);
 });
@@ -264,7 +253,7 @@ STAGES.forEach(s => {
 mapGrid.appendChild(buildRandomCard(() => {
   currentStage = STAGES[Math.floor(Math.random() * STAGES.length)];
   mapScreen.classList.add('hidden');
-  startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode || pendingSecretMac);
+  startMatch(pendingCharId, pendingBossMode ? 'mac' : null, pendingBossMode);
 }));
 
 document.getElementById('mapBackBtn').addEventListener('click', () => {
@@ -2433,25 +2422,6 @@ function isUsable(img) { return !!(img && img.complete && img.naturalWidth); }
 // 아예 poseSprites(평상시 전용 사진)로 폴백하도록 예외 처리하는 상태 목록
 const ACTION_POSE_STATES = ['special1', 'special2', 'special3', 'hitstun', 'groggy'];
 
-// 맥을 사람이 직접 조작할 때만(랜덤픽, CPU가 아닐 때만) 실제 플레이해보니 라이더
-// 모드는 걷기 자세만, 철거오야지 모드는 공격 4종(펀치1/2, 킥1/2)만 방향이 반대로
-// 보인다는 피드백 - 걷기는 f.walkDir(사람은 실제 눌린 키 방향, CPU는 항상 상대를
-// 향하는 방향)을 쓰는데 이 둘의 부호 규칙이 서로 달라서 생기는 차이로 보인다.
-// 해당 상태의 사진만 한정해서 dir을 반전시켜 보정하고, 맥에게 도전(CPU)은 건드리지 않는다
-const MAC_HUMAN_FLIP_STATES = {
-  riderForm: ['walk'],
-  phase2Form: ['punch1', 'punch2', 'kick1', 'kick2']
-};
-function maybeFlipMacHumanEntry(f, formKey, entry) {
-  if (f.data.id === 'mac' && !f.isCPU && entry) {
-    const flipStates = MAC_HUMAN_FLIP_STATES[formKey];
-    if (flipStates && flipStates.includes(f.state)) {
-      return Object.assign({}, entry, { dir: -(entry.dir || 1) });
-    }
-  }
-  return entry;
-}
-
 // 궁극기(변신) 지속 중에는 ultimateForm을 우선 사용, 없으면 idle로 대체.
 // 그 외에는 상태별 실제 자세 사진(poseSprites)을, 없으면 기본 스프라이트를 사용한다.
 function resolveFighterSprite(f) {
@@ -2481,7 +2451,7 @@ function resolveFighterSprite(f) {
       const hasOwn = !!formSet[f.state];
       if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
         const entry = formSet[f.state] || formSet.idle;
-        if (isUsable(entry && entry.img)) return maybeFlipMacHumanEntry(f, formKey, entry);
+        if (isUsable(entry && entry.img)) return entry;
       }
     }
   }
@@ -2501,7 +2471,7 @@ function resolveFighterSprite(f) {
     const hasOwn = !!formSet[f.state];
     if (hasOwn || !ACTION_POSE_STATES.includes(f.state)) {
       const entry = formSet[f.state] || formSet.idle;
-      if (isUsable(entry && entry.img)) return maybeFlipMacHumanEntry(f, 'phase2Form', entry);
+      if (isUsable(entry && entry.img)) return entry;
     }
   }
   const poseEntry = f.data.poseSprites && f.data.poseSprites[f.state];
