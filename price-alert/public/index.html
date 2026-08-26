@@ -54,6 +54,26 @@
         <label>튜닝 내용(선택)
           <input type="text" name="tuningNote" placeholder="예: 머플러, ECU맵핑" />
         </label>
+        <label class="checkbox">
+          <input type="checkbox" name="topBox" />
+          탑박스 있음
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="blackBox" />
+          블랙박스 있음
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="engineGuard" />
+          엔진가드 있음
+        </label>
+        <label class="checkbox warning">
+          <input type="checkbox" name="crashHistory" />
+          사고이력 있음
+        </label>
+        <label class="checkbox warning">
+          <input type="checkbox" name="tipOver" />
+          꿍(전도) 있음
+        </label>
         <label>출처 링크(선택)
           <input type="url" name="url" placeholder="https://..." />
         </label>
@@ -68,14 +88,7 @@
 
   <section class="card" id="listings-section">
     <h2>3. 등록된 매물 (<span id="listing-count">0</span>)</h2>
-    <table id="listings-table">
-      <thead>
-        <tr>
-          <th>플랫폼</th><th>가격</th><th>년식</th><th>키로수</th><th>튜닝</th><th>메모</th><th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div id="listings-list"></div>
   </section>
 
   <section class="card" id="estimate-section">
