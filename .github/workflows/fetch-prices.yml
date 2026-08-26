@@ -21,10 +21,14 @@ jobs:
       - name: Fetch listings from 번개장터
         run: node price-alert/scripts/fetch-bunjang.mjs
 
+      - name: Fetch listings from 바튜매(네이버 검색)
+        run: node price-alert/scripts/fetch-naver-cafe.mjs
+        continue-on-error: true
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add price-alert/data/bunjang-listings.json
-          git diff --cached --quiet || git commit -m "chore: 번개장터 시세 자동 갱신"
+          git add price-alert/data/bunjang-listings.json price-alert/data/naver-cafe-listings.json
+          git diff --cached --quiet || git commit -m "chore: 시세 자동 갱신"
           git push

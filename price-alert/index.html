@@ -161,7 +161,7 @@
   <header style="display:flex; flex-direction:column; gap:10px;">
     <h1>🏍️ 스즈키 GSX-S1000GX 시세알리미</h1>
     <div class="ticker">
-      <p class="ticker-label">자동 수집 · 번개장터</p>
+      <p class="ticker-label">자동 수집 · 번개장터 · 바튜매</p>
       <p class="ticker-value" id="headline">불러오는 중...</p>
       <p class="hint" id="updatedAt"></p>
     </div>
@@ -169,7 +169,7 @@
 
   <section class="card">
     <h2>매물 (<span id="count">0</span>) · 저렴한 순</h2>
-    <p class="hint">번개장터 공개 검색 결과를 6시간마다 자동으로 가져옵니다. 로그인이 필요한 바튜매(네이버카페)와 공식 API가 없는 당근마켓·라이트바겐은 자동 수집 대상에서 제외했어요.</p>
+    <p class="hint">번개장터 공개 검색과 네이버 통합검색에 노출되는 바튜매(네이버카페) 글을 6시간마다 자동으로 가져옵니다. 바튜매는 카페 자체가 로그인해야 검색되기 때문에 네이버 검색 결과에 노출된 글만 반영돼요. 공식 API가 없는 당근마켓·라이트바겐은 자동 수집 대상에서 제외했습니다.</p>
     <div id="list"></div>
   </section>
 
@@ -177,7 +177,7 @@
 
 <script>
 (function () {
-  var DATA_URL = './data/bunjang-listings.json';
+  var DATA_URLS = ['./data/bunjang-listings.json', './data/naver-cafe-listings.json'];
 
   function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
   function manwon(n) { return Math.round(Number(n) / 10000).toLocaleString('ko-KR') + '만원'; }
@@ -200,18 +200,28 @@
   var listEl = document.getElementById('list');
   var countEl = document.getElementById('count');
 
-  function renderError(message) {
-    headline.textContent = message;
-    listEl.innerHTML = '';
+  function fetchOne(url) {
+    return fetch(url, { cache: 'no-store' })
+      .then(function (res) { return res.ok ? res.json() : { items: [] }; })
+      .catch(function () { return { items: [] }; });
   }
 
-  function render(data) {
-    var items = Array.isArray(data.items) ? data.items : [];
-    countEl.textContent = items.length;
-    updatedAt.textContent = formatUpdated(data.fetchedAt);
+  Promise.all(DATA_URLS.map(fetchOne)).then(function (results) {
+    var items = [];
+    var fetchedTimes = [];
+    var hadError = false;
 
-    if (data.lastError) {
-      updatedAt.textContent += (updatedAt.textContent ? ' · ' : '') + '최근 자동 갱신 실패, 마지막 성공 데이터를 보여줍니다';
+    results.forEach(function (data) {
+      if (Array.isArray(data.items)) items = items.concat(data.items);
+      if (data.fetchedAt) fetchedTimes.push(data.fetchedAt);
+      if (data.lastError) hadError = true;
+    });
+
+    countEl.textContent = items.length;
+    var latest = fetchedTimes.sort().slice(-1)[0];
+    updatedAt.textContent = formatUpdated(latest);
+    if (hadError) {
+      updatedAt.textContent += (updatedAt.textContent ? ' · ' : '') + '일부 자동 갱신 실패, 마지막 성공 데이터를 보여줍니다';
     }
 
     if (items.length === 0) {
@@ -231,24 +241,14 @@
         '<div class="row-main">' +
           '<div class="row-top">' +
             '<span class="price">' + won(item.price) + '</span>' +
-            '<span class="badge">' + escapeHtml(item.platform || '번개장터') + '</span>' +
+            '<span class="badge">' + escapeHtml(item.platform || '') + '</span>' +
           '</div>' +
           '<div class="summary">' + escapeHtml(item.title || '') + '</div>' +
         '</div>' +
         (item.url ? '<a class="tag link" href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">원문보기</a>' : '');
       listEl.appendChild(row);
     });
-  }
-
-  fetch(DATA_URL, { cache: 'no-store' })
-    .then(function (res) {
-      if (!res.ok) throw new Error('데이터를 불러오지 못했습니다');
-      return res.json();
-    })
-    .then(render)
-    .catch(function () {
-      renderError('시세를 불러오지 못했습니다');
-    });
+  });
 })();
 </script>
 </body>
