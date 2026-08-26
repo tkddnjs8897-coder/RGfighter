@@ -21,9 +21,16 @@ import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian } from './lib.m
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'naver-cafe-listings.json');
-const QUERY = process.env.NAVER_QUERY || 'GSX-S1000GX 중고';
 
-const SEARCH_URL = 'https://search.naver.com/search.naver?' + new URLSearchParams({ query: QUERY });
+// 검색어 하나로는 실제 판매글이 안 잡히는 경우가 있어(질문글만 걸리는 등),
+// 여러 검색어로 시도해서 합친다.
+const QUERIES = process.env.NAVER_QUERY
+  ? [process.env.NAVER_QUERY]
+  : ['GSX-S1000GX 중고', 'GSX-S1000GX 판매', 'GSX-S1000GX 팝니다'];
+
+function buildUrl(query) {
+  return 'https://search.naver.com/search.naver?' + new URLSearchParams({ query });
+}
 
 function parsePriceKRW(text) {
   const manMatch = text.match(/([\d,]+)\s*만\s*원/);
@@ -39,24 +46,22 @@ function parsePriceKRW(text) {
   return null;
 }
 
-async function fetchListings() {
-  const browser = await chromium.launch();
+async function fetchOne(browser, query) {
+  const page = await browser.newPage({
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    locale: 'ko-KR',
+  });
 
   try {
-    const page = await browser.newPage({
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      locale: 'ko-KR',
-    });
-
-    await page.goto(SEARCH_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(buildUrl(query), { waitUntil: 'networkidle', timeout: 30000 });
     // 카페 결과 섹션이 초기 로딩 이후에도 늦게 붙는 경우가 있어 조금 더 기다린다.
     await page.waitForTimeout(1500);
 
     // 앵커 자체의 텍스트(제목)와, 근처 조상 요소의 텍스트(스니펫/가격이
     // 보통 여기 있음)를 함께 가져온다. 조상을 너무 넓게 잡으면 옆 결과의
     // 텍스트까지 섞여 들어오므로, 부모를 2단계까지만 올라간다.
-    const raw = await page.$$eval('a[href*="cafe.naver.com"]', (anchors) => {
+    return await page.$$eval('a[href*="cafe.naver.com"]', (anchors) => {
       function scopedContext(el) {
         var node = el;
         for (var i = 0; i < 2 && node.parentElement; i++) node = node.parentElement;
@@ -70,27 +75,43 @@ async function fetchListings() {
         };
       });
     });
+  } finally {
+    await page.close();
+  }
+}
 
+async function fetchListings() {
+  const browser = await chromium.launch();
+
+  try {
     const seen = new Set();
     const candidates = [];
+    let totalLinks = 0;
+    const sampleForDiagnostics = [];
 
-    for (const { href, title, context } of raw) {
-      if (!title || seen.has(href)) continue;
-      if (!isTargetModel(title)) continue;
-      if (isSoldOut(title) || isSoldOut(context)) continue;
+    for (const query of QUERIES) {
+      const raw = await fetchOne(browser, query);
+      totalLinks += raw.length;
+      if (sampleForDiagnostics.length < 15) sampleForDiagnostics.push(...raw.slice(0, 15 - sampleForDiagnostics.length));
 
-      const price = parsePriceKRW(title) ?? parsePriceKRW(context);
-      if (!Number.isFinite(price) || price < MIN_PRICE) continue;
+      for (const { href, title, context } of raw) {
+        if (!title || seen.has(href)) continue;
+        if (!isTargetModel(title)) continue;
+        if (isSoldOut(title) || isSoldOut(context)) continue;
 
-      seen.add(href);
-      candidates.push({ id: href, title, price, url: href, platform: '바튜매' });
+        const price = parsePriceKRW(title) ?? parsePriceKRW(context);
+        if (!Number.isFinite(price) || price < MIN_PRICE) continue;
+
+        seen.add(href);
+        candidates.push({ id: href, title, price, url: href, platform: '바튜매' });
+      }
     }
 
-    console.log(`cafe.naver.com 링크 ${raw.length}개 발견, 모델/가격 조건 통과 ${candidates.length}건`);
+    console.log(`cafe.naver.com 링크 ${totalLinks}개 발견(검색어 ${QUERIES.length}개 합산), 모델/가격 조건 통과 ${candidates.length}건`);
     if (candidates.length === 0) {
       // 왜 0건인지 진단하기 위해 실제로 잡힌 링크의 제목/URL을 그대로 로그에 남긴다.
       console.log('--- 진단용: 발견된 링크 원본 (최대 15개) ---');
-      for (const { href, title } of raw.slice(0, 15)) {
+      for (const { href, title } of sampleForDiagnostics) {
         console.log(JSON.stringify({ href, title }));
       }
     }
@@ -99,8 +120,8 @@ async function fetchListings() {
 
     if (items.length === 0) {
       throw new Error(
-        `카페 글에서 가격을 파싱하지 못했습니다 (cafe.naver.com 링크 ${raw.length}개 중 매칭 0건). ` +
-          '검색 결과 구조가 바뀌었거나, 접근이 차단됐거나, 검색어와 맞는 글이 없을 수 있습니다.'
+        `카페 글에서 가격을 파싱하지 못했습니다 (cafe.naver.com 링크 ${totalLinks}개 중 매칭 0건). ` +
+          '검색 결과 구조가 바뀌었거나, 접근이 차단됐거나, 지금 시점에 조건에 맞는 판매글이 없을 수 있습니다.'
       );
     }
 
@@ -114,7 +135,7 @@ async function loadPrevious() {
   try {
     return JSON.parse(await readFile(OUT_PATH, 'utf8'));
   } catch {
-    return { query: QUERY, items: [] };
+    return { query: QUERIES.join(' / '), items: [] };
   }
 }
 
@@ -125,7 +146,7 @@ async function main() {
   try {
     const items = await fetchListings();
     const payload = {
-      query: QUERY,
+      query: QUERIES.join(' / '),
       source: 'naver-cafe',
       fetchedAt: new Date().toISOString(),
       items,
@@ -136,7 +157,7 @@ async function main() {
     console.error('수집 실패:', err.message);
     const payload = {
       ...previous,
-      query: QUERY,
+      query: QUERIES.join(' / '),
       lastError: { message: err.message, at: new Date().toISOString() },
     };
     await writeFile(OUT_PATH, JSON.stringify(payload, null, 2) + '\n', 'utf8');
