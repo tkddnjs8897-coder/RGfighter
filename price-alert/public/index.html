@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>스즈키 GSX-S1000GX 시세알리미</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1>🏍️ 스즈키 GSX-S1000GX 시세알리미</h1>
+  <p class="subtitle">바튜매 · 당근마켓 · 번개장터 · 라이트바겐에서 확인한 매물을 등록하고, 튜닝여부/키로수/년식 기준 시세를 추정합니다.</p>
+</header>
+
+<main>
+  <section class="card" id="quick-search">
+    <h2>1. 빠른 검색</h2>
+    <p class="hint">각 플랫폼에서 직접 검색해서 가격을 확인한 뒤, 아래 폼에 등록하세요. (자동 수집은 하지 않습니다)</p>
+    <div class="search-row">
+      <input type="text" id="search-keyword" value="스즈키 GSX-S1000GX" />
+      <button type="button" data-site="daangn">당근마켓 검색</button>
+      <button type="button" data-site="bunjang">번개장터 검색</button>
+      <button type="button" data-site="naver">네이버 통합검색</button>
+    </div>
+    <p class="hint">바튜매(네이버카페)·라이트바겐은 로그인/전용 도메인이 필요해 자동 링크를 만들지 않습니다. 즐겨찾기로 직접 방문 후, 확인한 가격을 아래에 입력해주세요.</p>
+  </section>
+
+  <section class="card" id="add-listing">
+    <h2>2. 비교 매물 등록</h2>
+    <form id="listing-form">
+      <div class="form-grid">
+        <label>플랫폼
+          <select name="platform" required>
+            <option value="바튜매">바튜매(네이버카페)</option>
+            <option value="당근마켓">당근마켓</option>
+            <option value="번개장터">번개장터</option>
+            <option value="라이트바겐">라이트바겐</option>
+            <option value="기타">기타</option>
+          </select>
+        </label>
+        <label>가격(원)
+          <input type="number" name="price" min="1" required />
+        </label>
+        <label>년식
+          <input type="number" name="year" min="1990" max="2100" required />
+        </label>
+        <label>키로수(km)
+          <input type="number" name="mileage" min="0" required />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="tuned" />
+          튜닝됨
+        </label>
+        <label>튜닝 내용(선택)
+          <input type="text" name="tuningNote" placeholder="예: 머플러, ECU맵핑" />
+        </label>
+        <label>출처 링크(선택)
+          <input type="url" name="url" placeholder="https://..." />
+        </label>
+        <label>메모(선택)
+          <input type="text" name="note" />
+        </label>
+      </div>
+      <button type="submit">매물 등록</button>
+      <p id="form-error" class="error"></p>
+    </form>
+  </section>
+
+  <section class="card" id="listings-section">
+    <h2>3. 등록된 매물 (<span id="listing-count">0</span>)</h2>
+    <table id="listings-table">
+      <thead>
+        <tr>
+          <th>플랫폼</th><th>가격</th><th>년식</th><th>키로수</th><th>튜닝</th><th>메모</th><th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="estimate-section">
+    <h2>4. 시세 추정 &amp; 이 가격 괜찮아?</h2>
+    <form id="estimate-form">
+      <div class="form-grid">
+        <label>년식
+          <input type="number" name="year" min="1990" max="2100" required />
+        </label>
+        <label>키로수(km)
+          <input type="number" name="mileage" min="0" required />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="tuned" />
+          튜닝됨
+        </label>
+        <label>후보 매물 가격(선택, 판정용)
+          <input type="number" name="candidatePrice" min="1" placeholder="비교하고 싶은 매물 가격" />
+        </label>
+      </div>
+      <button type="submit">시세 계산</button>
+    </form>
+    <div id="estimate-result"></div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
