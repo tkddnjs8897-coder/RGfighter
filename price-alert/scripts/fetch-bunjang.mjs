@@ -10,7 +10,7 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MIN_PRICE, isTargetModel, dropFarBelowMedian } from './lib.mjs';
+import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'bunjang-listings.json');
@@ -59,6 +59,8 @@ async function fetchListings() {
       const title = item.name ?? item.title ?? item.productName ?? '';
       if (!Number.isFinite(price) || price < MIN_PRICE || !id) continue;
       if (!isTargetModel(title)) continue;
+      // 제목뿐 아니라 응답 필드 전체를 훑어 판매완료/거래완료 표시가 있으면 제외
+      if (isSoldOut(JSON.stringify(item))) continue;
       const key = String(id);
       if (seen.has(key)) continue;
       seen.add(key);
