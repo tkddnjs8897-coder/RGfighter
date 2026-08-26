@@ -161,7 +161,7 @@
   <header style="display:flex; flex-direction:column; gap:10px;">
     <h1>🏍️ 스즈키 GSX-S1000GX 시세알리미</h1>
     <div class="ticker">
-      <p class="ticker-label">번개장터 최저 시세</p>
+      <p class="ticker-label">자동 수집 · 번개장터</p>
       <p class="ticker-value" id="headline">불러오는 중...</p>
       <p class="hint" id="updatedAt"></p>
     </div>
@@ -221,7 +221,7 @@
     }
 
     var sorted = items.slice().sort(function (a, b) { return a.price - b.price; });
-    headline.innerHTML = '<span class="num">' + manwon(sorted[0].price) + '</span>';
+    headline.innerHTML = '오늘자 S1000GX 시세는 <span class="num">' + manwon(sorted[0].price) + '</span>입니다';
 
     listEl.innerHTML = '';
     sorted.forEach(function (item) {
