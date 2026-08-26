@@ -90,40 +90,6 @@ function validateListing(input) {
   };
 }
 
-// 매물 리스트 대비 목표 조건(년식/키로수/튜닝여부)의 가중평균 추정 시세 계산
-function estimatePrice(target, listings) {
-  if (listings.length === 0) return null;
-
-  const YEAR_WEIGHT = 0.6; // 년식 1년 차이의 가중치 페널티
-  const MILEAGE_WEIGHT = 0.15; // 키로수 1000km 차이의 가중치 페널티
-
-  let weightSum = 0;
-  let weightedPriceSum = 0;
-  const contributions = [];
-
-  for (const item of listings) {
-    const yearDiff = Math.abs(item.year - target.year);
-    const mileageDiffK = Math.abs(item.mileage - target.mileage) / 1000;
-    let weight = 1 / (1 + yearDiff * YEAR_WEIGHT + mileageDiffK * MILEAGE_WEIGHT);
-    if (item.tuned !== target.tuned) weight *= 0.5; // 튜닝여부 다르면 영향력 절반으로 축소
-
-    weightSum += weight;
-    weightedPriceSum += weight * item.price;
-    contributions.push({ id: item.id, weight });
-  }
-
-  if (weightSum === 0) return null;
-
-  const estimated = weightedPriceSum / weightSum;
-  contributions.sort((a, b) => b.weight - a.weight);
-
-  return {
-    estimated: Math.round(estimated),
-    topContributors: contributions.slice(0, 5).map((c) => c.id),
-    sampleSize: listings.length,
-  };
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -156,33 +122,6 @@ const server = http.createServer(async (req, res) => {
       if (next.length === listings.length) return sendJson(res, 404, { error: '매물을 찾을 수 없습니다.' });
       saveListings(next);
       return sendJson(res, 200, { ok: true });
-    }
-
-    if (url.pathname === '/api/estimate' && req.method === 'POST') {
-      const body = await readBody(req);
-      const year = Number(body.year);
-      const mileage = Number(body.mileage);
-      const tuned = Boolean(body.tuned);
-
-      if (!Number.isFinite(year) || !Number.isFinite(mileage)) {
-        return sendJson(res, 400, { errors: ['년식/키로수를 올바르게 입력해주세요.'] });
-      }
-
-      const listings = loadListings();
-      const estimate = estimatePrice({ year, mileage, tuned }, listings);
-      if (!estimate) return sendJson(res, 200, { estimated: null, message: '비교할 매물이 없습니다. 먼저 매물을 등록해주세요.' });
-
-      let verdict = null;
-      let diffPercent = null;
-      const candidatePrice = Number(body.candidatePrice);
-      if (Number.isFinite(candidatePrice) && candidatePrice > 0) {
-        diffPercent = ((candidatePrice - estimate.estimated) / estimate.estimated) * 100;
-        if (diffPercent <= -10) verdict = 'cheap';
-        else if (diffPercent >= 10) verdict = 'expensive';
-        else verdict = 'fair';
-      }
-
-      return sendJson(res, 200, { ...estimate, diffPercent, verdict });
     }
 
     // 정적 파일 서빙

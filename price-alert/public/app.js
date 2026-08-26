@@ -22,6 +22,21 @@ function won(n) {
   return Number(n).toLocaleString('ko-KR') + '원';
 }
 
+function manwon(n) {
+  return Math.round(Number(n) / 10000).toLocaleString('ko-KR') + '만원';
+}
+
+const headline = document.getElementById('headline');
+
+function updateHeadline(listings) {
+  if (listings.length === 0) {
+    headline.textContent = '매물을 등록하면 시세가 표시됩니다';
+    return;
+  }
+  const avg = listings.reduce((sum, l) => sum + l.price, 0) / listings.length;
+  headline.textContent = `오늘자 시세는 ${manwon(avg)}입니다`;
+}
+
 function dateLabel(iso) {
   const d = new Date(iso);
   const now = new Date();
@@ -51,6 +66,7 @@ async function fetchListings() {
 function renderListings(listings) {
   listingCount.textContent = listings.length;
   listingsList.innerHTML = '';
+  updateHeadline(listings);
 
   if (listings.length === 0) {
     listingsList.innerHTML = '<p class="hint">아직 등록된 매물이 없습니다.</p>';
@@ -126,48 +142,6 @@ listingForm.addEventListener('submit', async (e) => {
 
   listingForm.reset();
   fetchListings();
-});
-
-const estimateForm = document.getElementById('estimate-form');
-const estimateResult = document.getElementById('estimate-result');
-
-estimateForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const fd = new FormData(estimateForm);
-  const payload = {
-    year: fd.get('year'),
-    mileage: fd.get('mileage'),
-    tuned: fd.get('tuned') === 'on',
-    candidatePrice: fd.get('candidatePrice') || undefined,
-  };
-
-  const res = await fetch('/api/estimate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-
-  if (data.estimated === null) {
-    estimateResult.innerHTML = `<p class="hint">${data.message}</p>`;
-    return;
-  }
-
-  let html = `
-    <div class="estimate-price">추정 시세: ${won(data.estimated)}</div>
-    <p class="hint">비교 매물 ${data.sampleSize}건 기반 가중평균 추정치입니다.</p>
-  `;
-
-  if (data.verdict) {
-    const labels = {
-      cheap: `👍 저렴한 매물 (${data.diffPercent.toFixed(1)}%)`,
-      fair: `⚖️ 적정가 (${data.diffPercent.toFixed(1)}%)`,
-      expensive: `⚠️ 비싼 편 (${data.diffPercent.toFixed(1)}%)`,
-    };
-    html += `<div class="verdict ${data.verdict}">${labels[data.verdict]}</div>`;
-  }
-
-  estimateResult.innerHTML = html;
 });
 
 fetchListings();

@@ -6,10 +6,6 @@
   --muted: #5b6472;
   --accent: #e8790c;
   --accent-text: #ffffff;
-  --cheap-bg: #e5f7ea;
-  --cheap-text: #1c8a44;
-  --fair-bg: #fff4e0;
-  --fair-text: #b5710a;
   --expensive-bg: #fde8e8;
   --expensive-text: #c62828;
 }
@@ -30,8 +26,13 @@ header {
   margin: 0 auto;
 }
 
-h1 { margin: 0 0 4px; font-size: 1.5rem; color: var(--text); }
-.subtitle { color: var(--muted); margin: 0; font-size: 0.9rem; }
+h1 { margin: 0 0 6px; font-size: 1.5rem; color: var(--text); }
+.headline {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent);
+}
 
 main {
   max-width: 900px;
@@ -197,26 +198,3 @@ label.checkbox.warning { color: var(--expensive-text); }
   border-radius: 8px;
 }
 .del-btn:hover { background: var(--expensive-bg); }
-
-#estimate-result {
-  margin-top: 14px;
-  font-size: 0.95rem;
-}
-
-.estimate-price {
-  font-size: 1.7rem;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.verdict {
-  display: inline-block;
-  padding: 5px 14px;
-  border-radius: 999px;
-  font-weight: 700;
-  margin-top: 8px;
-}
-
-.verdict.cheap { background: var(--cheap-bg); color: var(--cheap-text); }
-.verdict.fair { background: var(--fair-bg); color: var(--fair-text); }
-.verdict.expensive { background: var(--expensive-bg); color: var(--expensive-text); }
