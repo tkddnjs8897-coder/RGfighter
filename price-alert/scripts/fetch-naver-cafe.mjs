@@ -68,9 +68,11 @@ async function fetchOne(browser, query) {
         return (node.textContent || '').slice(0, 500);
       }
       return anchors.map(function (a) {
+        // "새 창 열림"은 스크린리더용 접근성 안내문구라 실제 제목이 아니다.
+        var title = (a.textContent || '').replace(/\s+/g, ' ').trim().replace(/새\s*창\s*열림\s*$/, '').trim();
         return {
           href: a.href,
-          title: (a.textContent || '').replace(/\s+/g, ' ').trim(),
+          title: title,
           context: scopedContext(a).replace(/\s+/g, ' ').trim(),
         };
       });
