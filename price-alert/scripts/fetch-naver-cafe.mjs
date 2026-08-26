@@ -11,11 +11,13 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MIN_PRICE, isTargetModel, dropFarBelowMedian } from './lib.mjs';
+import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'naver-cafe-listings.json');
-const QUERY = process.env.NAVER_QUERY || '바튜매 GSX-S1000GX 판매';
+// "바튜매 GSX-S1000GX 판매"처럼 너무 좁게 쓰면 실제로 뜨는 카페 글과 매칭이
+// 안 될 수 있어, 사용자가 실제로 검색해서 결과가 나온다고 확인해준 문구로 맞춤.
+const QUERY = process.env.NAVER_QUERY || 'GSX-S1000GX 중고';
 
 const SEARCH_URL = 'https://search.naver.com/search.naver?' + new URLSearchParams({ query: QUERY });
 
@@ -65,8 +67,10 @@ async function fetchListings() {
   const seen = new Set();
   const candidates = [];
   let match;
+  let linkCount = 0;
 
   while ((match = linkRegex.exec(html)) !== null) {
+    linkCount += 1;
     const url = match[1];
     if (seen.has(url)) continue;
 
@@ -74,6 +78,7 @@ async function fetchListings() {
     // 모델 판별은 제목만으로 한다(문맥 창을 쓰면 다음 링크의 텍스트까지
     // 섞여 들어와 다른 모델을 오매칭할 수 있다 - 테스트로 확인함).
     if (!title || !isTargetModel(title)) continue;
+    if (isSoldOut(title)) continue;
 
     // 가격은 제목에 없으면, 이 링크 뒤부터 다음 <a 태그가 나오기 전까지의
     // 스니펫 구간(최대 300자)에서 찾는다.
@@ -81,6 +86,7 @@ async function fetchListings() {
     const nextAnchorIdx = html.indexOf('<a ', afterLinkStart);
     const contextEnd = nextAnchorIdx === -1 ? afterLinkStart + 300 : Math.min(nextAnchorIdx, afterLinkStart + 300);
     const context = stripTags(html.slice(afterLinkStart, contextEnd));
+    if (isSoldOut(context)) continue;
 
     const price = parsePriceKRW(title) ?? parsePriceKRW(context);
     if (!Number.isFinite(price) || price < MIN_PRICE) continue;
@@ -95,10 +101,15 @@ async function fetchListings() {
     });
   }
 
+  console.log(`cafe.naver.com 링크 ${linkCount}개 발견, 모델/가격 조건 통과 ${candidates.length}건`);
+
   const items = dropFarBelowMedian(candidates).sort((a, b) => a.price - b.price);
 
   if (items.length === 0) {
-    throw new Error('카페 글에서 가격을 파싱하지 못했습니다. 검색 결과 구조가 바뀌었거나 접근이 차단됐을 수 있습니다.');
+    throw new Error(
+      `카페 글에서 가격을 파싱하지 못했습니다 (cafe.naver.com 링크 ${linkCount}개 중 매칭 0건). ` +
+        '검색 결과 구조가 바뀌었거나, 접근이 차단됐거나, 검색어와 맞는 글이 없을 수 있습니다.'
+    );
   }
 
   return items;

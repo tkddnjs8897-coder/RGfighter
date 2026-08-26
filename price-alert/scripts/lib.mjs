@@ -7,6 +7,12 @@ export function isTargetModel(text) {
   return normalized.includes('1000GX');
 }
 
+const SOLD_OUT_PATTERN = /(판매|거래|계약)\s*(완료|됨)|예약\s*중|판매\s*됨|sold\s*out/i;
+
+export function isSoldOut(text) {
+  return SOLD_OUT_PATTERN.test(text);
+}
+
 export function median(nums) {
   const sorted = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
