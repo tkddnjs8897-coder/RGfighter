@@ -21,14 +21,11 @@ jobs:
       - name: Fetch listings from 번개장터
         run: node price-alert/scripts/fetch-bunjang.mjs
 
-      - name: Install Playwright (바튜매 수집용)
-        working-directory: price-alert
-        run: |
-          npm install
-          npx playwright install --with-deps chromium
-
-      - name: Fetch listings from 바튜매(네이버 검색)
+      - name: Fetch listings from 바튜매(네이버 카페글 검색 API)
         run: node price-alert/scripts/fetch-naver-cafe.mjs
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         continue-on-error: true
 
       - name: Commit and push if changed
