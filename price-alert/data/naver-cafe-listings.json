@@ -13,6 +13,6 @@
   ],
   "lastError": {
     "message": "NAVER_CLIENT_ID / NAVER_CLIENT_SECRET이 설정되지 않았습니다. developers.naver.com에서 발급받아 저장소 Settings → Secrets and variables → Actions에 추가해주세요.",
-    "at": "2026-08-26T22:50:30.717Z"
+    "at": "2026-08-26T22:54:27.697Z"
   }
 }
