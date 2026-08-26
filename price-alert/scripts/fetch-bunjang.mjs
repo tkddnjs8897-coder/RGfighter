@@ -24,6 +24,20 @@ function isTargetModel(title) {
   return normalized.includes('1000GX');
 }
 
+function median(nums) {
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// 판매완료 후 방치된 매물은 실제 시세와 동떨어진 헐값으로 남아있는 경우가
+// 있다. 중간값의 절반보다 싼 매물은 정상 매물이 아닐 가능성이 높아 제외한다.
+function dropFarBelowMedian(items) {
+  if (items.length < 3) return items;
+  const mid = median(items.map((item) => item.price));
+  return items.filter((item) => item.price >= mid * 0.5);
+}
+
 const SEARCH_URL =
   'https://api.bunjang.co.kr/api/1/find_v2.json?' +
   new URLSearchParams({
@@ -53,23 +67,24 @@ async function fetchListings() {
     throw new Error('예상하지 못한 응답 형식: ' + JSON.stringify(data).slice(0, 500));
   }
 
-  const items = rawList
-    .map((item) => {
-      const price = Number(item.price ?? item.productPrice ?? item?.priceInfo?.price);
-      const id = item.pid ?? item.id ?? item.productId;
-      const title = item.name ?? item.title ?? item.productName ?? '';
-      if (!Number.isFinite(price) || price < MIN_PRICE || !id) return null;
-      if (!isTargetModel(title)) return null;
-      return {
-        id: String(id),
-        title: String(title),
-        price,
-        url: `https://m.bunjang.co.kr/products/${id}`,
-        platform: '번개장터',
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.price - b.price);
+  const items = dropFarBelowMedian(
+    rawList
+      .map((item) => {
+        const price = Number(item.price ?? item.productPrice ?? item?.priceInfo?.price);
+        const id = item.pid ?? item.id ?? item.productId;
+        const title = item.name ?? item.title ?? item.productName ?? '';
+        if (!Number.isFinite(price) || price < MIN_PRICE || !id) return null;
+        if (!isTargetModel(title)) return null;
+        return {
+          id: String(id),
+          title: String(title),
+          price,
+          url: `https://m.bunjang.co.kr/products/${id}`,
+          platform: '번개장터',
+        };
+      })
+      .filter(Boolean)
+  ).sort((a, b) => a.price - b.price);
 
   if (items.length === 0) {
     throw new Error('검색 결과를 0건 파싱했습니다. 응답 형식이 바뀌었을 수 있습니다.');
