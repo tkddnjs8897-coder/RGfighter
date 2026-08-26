@@ -87,6 +87,13 @@ async function fetchListings() {
     }
 
     console.log(`cafe.naver.com 링크 ${raw.length}개 발견, 모델/가격 조건 통과 ${candidates.length}건`);
+    if (candidates.length === 0) {
+      // 왜 0건인지 진단하기 위해 실제로 잡힌 링크의 제목/URL을 그대로 로그에 남긴다.
+      console.log('--- 진단용: 발견된 링크 원본 (최대 15개) ---');
+      for (const { href, title } of raw.slice(0, 15)) {
+        console.log(JSON.stringify({ href, title }));
+      }
+    }
 
     const items = dropFarBelowMedian(candidates).sort((a, b) => a.price - b.price);
 
