@@ -33,8 +33,8 @@ function updateHeadline(listings) {
     headline.textContent = '매물을 등록하면 시세가 표시됩니다';
     return;
   }
-  const avg = listings.reduce((sum, l) => sum + l.price, 0) / listings.length;
-  headline.textContent = `오늘자 시세는 ${manwon(avg)}입니다`;
+  const min = Math.min(...listings.map((l) => l.price));
+  headline.textContent = `오늘자 시세는 ${manwon(min)}입니다`;
 }
 
 function dateLabel(iso) {
@@ -75,12 +75,13 @@ function renderListings(listings) {
 
   listings
     .slice()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .sort((a, b) => a.price - b.price)
     .forEach((item) => {
       const row = document.createElement('div');
       row.className = 'listing-row';
       row.innerHTML = `
         <div class="listing-main">
+          <span class="price-tag">${won(item.price)}</span>
           <span class="platform-badge">${escapeHtml(item.platform)}</span>
           <span class="summary">${escapeHtml(summaryLine(item))}</span>
           ${item.tuned ? `<span class="tag tuned">튜닝: ${escapeHtml(item.tuningNote || '내용 없음')}</span>` : ''}

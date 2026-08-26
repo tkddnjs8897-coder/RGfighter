@@ -158,6 +158,13 @@ button:hover { filter: brightness(1.08); }
   flex: 1;
 }
 
+.price-tag {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .platform-badge {
   background: #eaf1ff;
   color: #1d5fd6;
