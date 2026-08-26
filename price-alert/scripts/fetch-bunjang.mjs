@@ -15,6 +15,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'bunjang-listings.json');
 const QUERY = process.env.SEARCH_QUERY || '스즈키 GSX-S1000GX';
 
+// 검색어가 느슨하게 매칭돼 GSX-S750, GSX-S1000GT 같은 다른 모델이나
+// "가격문의"류 명목가(수백원) 매물이 섞여 들어오는 걸 걸러낸다.
+const MIN_PRICE = 1_000_000;
+
+function isTargetModel(title) {
+  const normalized = title.toUpperCase().replace(/[\s\-_]/g, '');
+  return normalized.includes('1000GX');
+}
+
 const SEARCH_URL =
   'https://api.bunjang.co.kr/api/1/find_v2.json?' +
   new URLSearchParams({
@@ -49,7 +58,8 @@ async function fetchListings() {
       const price = Number(item.price ?? item.productPrice ?? item?.priceInfo?.price);
       const id = item.pid ?? item.id ?? item.productId;
       const title = item.name ?? item.title ?? item.productName ?? '';
-      if (!Number.isFinite(price) || price <= 0 || !id) return null;
+      if (!Number.isFinite(price) || price < MIN_PRICE || !id) return null;
+      if (!isTargetModel(title)) return null;
       return {
         id: String(id),
         title: String(title),
