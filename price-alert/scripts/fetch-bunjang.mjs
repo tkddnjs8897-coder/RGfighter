@@ -17,7 +17,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'bunjang-listings.json');
 
 // 검색어를 여러 개 시도해서 합친다 (하나만 쓰면 매칭이 느슨/과하게 갈릴 수 있음).
-const QUERIES = process.env.SEARCH_QUERY ? [process.env.SEARCH_QUERY] : ['스즈키 GSX-S1000GX', 'GSX-S1000GX'];
+// "GSX-S1000GX" 형태로만 검색하면, 제목에 "s1000gx"처럼 GSX- 접두어나
+// 하이픈 없이 적힌 매물이 번개장터 자체 검색 순위에서 밀려 100건 안에
+// 안 잡히는 경우가 있어 표기 변형도 검색어에 추가한다.
+const QUERIES = process.env.SEARCH_QUERY
+  ? [process.env.SEARCH_QUERY]
+  : ['스즈키 GSX-S1000GX', 'GSX-S1000GX', 's1000gx', 'gsx s1000gx'];
 
 function buildUrl(query) {
   return (
@@ -112,6 +117,12 @@ async function fetchListings() {
       const title = item.name ?? item.title ?? item.productName ?? '';
 
       if (rawSample.length < 30) rawSample.push({ id, title, price });
+
+      // 진단용: 사용자가 제보한 "무사고 무꿍" 매물이 검색 응답 자체에
+      // 존재하는지(순위 밖으로 밀려서 안 잡히는 것인지) 확인한다.
+      if (/무사고|무꿍/.test(title)) {
+        console.log(`[진단] "무사고/무꿍" 포함 매물 발견: ${JSON.stringify({ query, id, title, price })}`);
+      }
 
       // 가격이 비정상적으로 낮으면(명목가로 추정) 상세 페이지에서 실제 가격을
       // 다시 확인할 후보로 남겨둔다 (검색 API 응답에는 진짜 가격이 없었음 - 확인됨).
