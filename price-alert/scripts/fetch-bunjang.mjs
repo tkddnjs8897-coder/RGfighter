@@ -50,13 +50,20 @@ async function fetchOne(query) {
 async function fetchListings() {
   const seen = new Set();
   const merged = [];
+  const rawSample = [];
+  let totalRaw = 0;
 
   for (const query of QUERIES) {
     const rawList = await fetchOne(query);
+    totalRaw += rawList.length;
+
     for (const item of rawList) {
       const price = Number(item.price ?? item.productPrice ?? item?.priceInfo?.price);
       const id = item.pid ?? item.id ?? item.productId;
       const title = item.name ?? item.title ?? item.productName ?? '';
+
+      if (rawSample.length < 30) rawSample.push({ id, title, price });
+
       if (!Number.isFinite(price) || price < MIN_PRICE || !id) continue;
       if (!isTargetModel(title)) continue;
       // 제목뿐 아니라 응답 필드 전체를 훑어 판매완료/거래완료 표시가 있으면 제외
@@ -72,6 +79,12 @@ async function fetchListings() {
         platform: '번개장터',
       });
     }
+  }
+
+  console.log(`번개장터 원본 매물 ${totalRaw}건(검색어 ${QUERIES.length}개 합산), 필터 통과 ${merged.length}건`);
+  console.log('--- 진단용: 원본 매물 샘플 (최대 30개) ---');
+  for (const s of rawSample) {
+    console.log(JSON.stringify(s));
   }
 
   const items = dropFarBelowMedian(merged).sort((a, b) => a.price - b.price);
