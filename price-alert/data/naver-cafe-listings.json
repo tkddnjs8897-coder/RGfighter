@@ -1,20 +1,13 @@
 {
   "query": "GSX-S1000GX 중고 / GSX-S1000GX 판매 / GSX-S1000GX 팝니다",
   "source": "naver-cafe",
-  "fetchedAt": "2026-08-27T09:05:30.116Z",
+  "fetchedAt": "2026-08-27T09:08:45.801Z",
   "items": [
     {
-      "id": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc4NzgyMTUwNDk3Nn0.NGRAlrL6lNPdGAJzV0ih-JIc0N7yM_I5ohkI5YSyExI",
+      "id": "https://cafe.naver.com/bikecargogo/9130261",
       "title": "스즈키 S1000gx 1750만원 판매합니다.",
       "price": 17500000,
       "url": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc4NzgyMTUwNDk3Nn0.NGRAlrL6lNPdGAJzV0ih-JIc0N7yM_I5ohkI5YSyExI",
-      "platform": "바튜매"
-    },
-    {
-      "id": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc4NzgyMTUxMTQzMX0.l8phcWVgLjwkCBITpwAlr7QX8Ocf2awdZUY0TIx8cEo",
-      "title": "스즈키 S1000gx 1750만원 판매합니다.",
-      "price": 17500000,
-      "url": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc4NzgyMTUxMTQzMX0.l8phcWVgLjwkCBITpwAlr7QX8Ocf2awdZUY0TIx8cEo",
       "platform": "바튜매"
     }
   ]
