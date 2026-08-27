@@ -1,12 +1,12 @@
 {
-  "query": "스즈키 GSX-S1000GX / GSX-S1000GX",
+  "query": "스즈키 GSX-S1000GX / GSX-S1000GX / s1000gx / gsx s1000gx",
   "source": "bunjang",
-  "fetchedAt": "2026-08-27T09:42:13.771Z",
+  "fetchedAt": "2026-08-27T09:47:27.386Z",
   "items": [
     {
       "id": "401915869",
       "title": "25년식 GSX-S1000GX 6000km 신차급 / 풀옵션 투어링 세팅",
-      "price": 7390000,
+      "price": 8900000,
       "url": "https://m.bunjang.co.kr/products/401915869",
       "platform": "번개장터"
     },
@@ -15,6 +15,27 @@
       "title": "스즈키)GSX-S1000GX 24년 2만 2채널블박 깔끔한바이크 판매합니",
       "price": 10000000,
       "url": "https://m.bunjang.co.kr/products/412272873",
+      "platform": "번개장터"
+    },
+    {
+      "id": "398654277",
+      "title": "스즈키 S1000GX 2024",
+      "price": 18000000,
+      "url": "https://m.bunjang.co.kr/products/398654277",
+      "platform": "번개장터"
+    },
+    {
+      "id": "417581099",
+      "title": "s1000gx",
+      "price": 19000000,
+      "url": "https://m.bunjang.co.kr/products/417581099",
+      "platform": "번개장터"
+    },
+    {
+      "id": "402379010",
+      "title": "스즈키 S1000GX 26년식 판매합니다",
+      "price": 22370000,
+      "url": "https://m.bunjang.co.kr/products/402379010",
       "platform": "번개장터"
     }
   ]
