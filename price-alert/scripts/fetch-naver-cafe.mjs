@@ -17,7 +17,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian } from './lib.mjs';
+import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian, parsePriceKRW } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'naver-cafe-listings.json');
@@ -30,20 +30,6 @@ const QUERIES = process.env.NAVER_QUERY
 
 function buildUrl(query) {
   return 'https://search.naver.com/search.naver?' + new URLSearchParams({ query });
-}
-
-function parsePriceKRW(text) {
-  const manMatch = text.match(/([\d,]+)\s*만\s*원/);
-  if (manMatch) {
-    const value = Number(manMatch[1].replace(/,/g, '')) * 10000;
-    if (Number.isFinite(value)) return value;
-  }
-  const wonMatch = text.match(/([\d,]{7,})\s*원/);
-  if (wonMatch) {
-    const value = Number(wonMatch[1].replace(/,/g, ''));
-    if (Number.isFinite(value)) return value;
-  }
-  return null;
 }
 
 async function fetchOne(browser, query) {

@@ -10,7 +10,8 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian } from './lib.mjs';
+import { chromium } from 'playwright';
+import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian, parsePriceKRW } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'bunjang-listings.json');
@@ -47,10 +48,32 @@ async function fetchOne(query) {
   return rawList;
 }
 
+// 검색 API가 명목가(999, 1111원 등)를 돌려주는 매물의 실제 가격을
+// 상품 상세 페이지에서 가져온다. "가격제안" 류 매물로 추정되며, 상세
+// 페이지에는 실제 가격이 텍스트로 노출된다.
+async function lookupRealPrice(browser, pid) {
+  const page = await browser.newPage({
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    locale: 'ko-KR',
+  });
+  try {
+    await page.goto(`https://m.bunjang.co.kr/products/${pid}`, { waitUntil: 'networkidle', timeout: 20000 });
+    const text = await page.evaluate(() => document.body.innerText);
+    return parsePriceKRW(text);
+  } catch (err) {
+    console.log(`상세 페이지 조회 실패(pid=${pid}): ${err.message}`);
+    return null;
+  } finally {
+    await page.close();
+  }
+}
+
 async function fetchListings() {
   const seen = new Set();
   const merged = [];
   const rawSample = [];
+  const lowPriceCandidates = new Map();
   let totalRaw = 0;
 
   for (const query of QUERIES) {
@@ -64,11 +87,10 @@ async function fetchListings() {
 
       if (rawSample.length < 30) rawSample.push({ id, title, price });
 
-      // 가격이 비정상적으로 낮은데(명목가로 추정) 모델명은 일치하는 경우,
-      // 진짜 가격이 다른 필드에 있는지 확인하기 위해 원본 전체를 로그에 남긴다.
-      if (Number.isFinite(price) && price > 0 && price < 10000 && isTargetModel(title)) {
-        console.log('--- 진단용: 명목가 의심 매물 원본 전체 ---');
-        console.log(JSON.stringify(item));
+      // 가격이 비정상적으로 낮으면(명목가로 추정) 상세 페이지에서 실제 가격을
+      // 다시 확인할 후보로 남겨둔다 (검색 API 응답에는 진짜 가격이 없었음 - 확인됨).
+      if (Number.isFinite(price) && price > 0 && price < 10000 && isTargetModel(title) && id && !isSoldOut(JSON.stringify(item))) {
+        lowPriceCandidates.set(String(id), String(title));
       }
 
       if (!Number.isFinite(price) || price < MIN_PRICE || !id) continue;
@@ -92,6 +114,24 @@ async function fetchListings() {
   console.log('--- 진단용: 원본 매물 샘플 (최대 30개) ---');
   for (const s of rawSample) {
     console.log(JSON.stringify(s));
+  }
+
+  const toLookup = [...lowPriceCandidates].filter(([id]) => !seen.has(id)).slice(0, 5);
+  if (toLookup.length > 0) {
+    console.log(`명목가 의심 매물 ${toLookup.length}건, 상세 페이지에서 실제 가격 조회 시도`);
+    const browser = await chromium.launch();
+    try {
+      for (const [id, title] of toLookup) {
+        const realPrice = await lookupRealPrice(browser, id);
+        console.log(`상세 페이지 조회: id=${id} title=${title} 실제가격=${realPrice}`);
+        if (Number.isFinite(realPrice) && realPrice >= MIN_PRICE && !seen.has(id)) {
+          seen.add(id);
+          merged.push({ id, title, price: realPrice, url: `https://m.bunjang.co.kr/products/${id}`, platform: '번개장터' });
+        }
+      }
+    } finally {
+      await browser.close();
+    }
   }
 
   const items = dropFarBelowMedian(merged).sort((a, b) => a.price - b.price);
