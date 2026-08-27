@@ -13,6 +13,20 @@ export function isSoldOut(text) {
   return SOLD_OUT_PATTERN.test(text);
 }
 
+export function parsePriceKRW(text) {
+  const manMatch = text.match(/([\d,]+)\s*만\s*원/);
+  if (manMatch) {
+    const value = Number(manMatch[1].replace(/,/g, '')) * 10000;
+    if (Number.isFinite(value)) return value;
+  }
+  const wonMatch = text.match(/([\d,]{7,})\s*원/);
+  if (wonMatch) {
+    const value = Number(wonMatch[1].replace(/,/g, ''));
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
 export function median(nums) {
   const sorted = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
