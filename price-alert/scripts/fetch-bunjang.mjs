@@ -59,8 +59,34 @@ async function lookupRealPrice(browser, pid) {
   });
   try {
     await page.goto(`https://m.bunjang.co.kr/products/${pid}`, { waitUntil: 'networkidle', timeout: 20000 });
+
+    // 1순위: 구조화 데이터(JSON-LD)에 있는 가격을 쓴다. 이 값은 이 상품에만
+    // 해당하는 값이라 페이지 안의 다른(추천/관련) 상품과 섞일 위험이 없다.
+    const ldPrice = await page.evaluate(() => {
+      const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const script of scripts) {
+        try {
+          const data = JSON.parse(script.textContent);
+          const list = Array.isArray(data) ? data : [data];
+          for (const entry of list) {
+            const price = entry?.offers?.price ?? entry?.price;
+            if (price) return Number(price);
+          }
+        } catch {
+          // 무시하고 다음 스크립트 계속 확인
+        }
+      }
+      return null;
+    });
+    if (Number.isFinite(ldPrice) && ldPrice > 0) return ldPrice;
+
+    // 2순위: JSON-LD가 없으면 페이지 텍스트를 쓰되, "함께 보면 좋은 상품" 같은
+    // 추천/관련 상품 섹션이 시작되기 전까지만 잘라서 찾는다. 그 섹션부터는
+    // 다른 상품의 가격이 섞여 있어 전체 텍스트를 그대로 쓰면 오탐이 난다.
     const text = await page.evaluate(() => document.body.innerText);
-    return parsePriceKRW(text);
+    const cutIndex = text.search(/함께\s*보면|추천\s*상품|비슷한\s*상품|관련\s*상품|다른\s*상품/);
+    const scoped = cutIndex > 0 ? text.slice(0, cutIndex) : text;
+    return parsePriceKRW(scoped);
   } catch (err) {
     console.log(`상세 페이지 조회 실패(pid=${pid}): ${err.message}`);
     return null;
