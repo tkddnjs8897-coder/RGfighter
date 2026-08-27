@@ -82,6 +82,12 @@ async function fetchOne(browser, query) {
   }
 }
 
+// 같은 글이 검색어마다 다른 추적 토큰(?art=...)을 달고 나와서, 토큰을 뗀
+// 기본 URL로 중복을 제거한다.
+function baseUrl(href) {
+  return href.split('?')[0];
+}
+
 async function fetchListings() {
   const browser = await chromium.launch();
 
@@ -97,15 +103,16 @@ async function fetchListings() {
       if (sampleForDiagnostics.length < 15) sampleForDiagnostics.push(...raw.slice(0, 15 - sampleForDiagnostics.length));
 
       for (const { href, title, context } of raw) {
-        if (!title || seen.has(href)) continue;
+        const key = baseUrl(href);
+        if (!title || seen.has(key)) continue;
         if (!isTargetModel(title)) continue;
         if (isSoldOut(title) || isSoldOut(context)) continue;
 
         const price = parsePriceKRW(title) ?? parsePriceKRW(context);
         if (!Number.isFinite(price) || price < MIN_PRICE) continue;
 
-        seen.add(href);
-        candidates.push({ id: href, title, price, url: href, platform: '바튜매' });
+        seen.add(key);
+        candidates.push({ id: key, title, price, url: href, platform: '바튜매' });
       }
     }
 
