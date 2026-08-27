@@ -11,7 +11,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian, parsePriceKRW } from './lib.mjs';
+import { MIN_PRICE, isTargetModel, isSoldOut, parsePriceKRW } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'bunjang-listings.json');
@@ -171,7 +171,7 @@ async function fetchListings() {
     }
   }
 
-  const items = dropFarBelowMedian(merged).sort((a, b) => a.price - b.price);
+  const items = merged.sort((a, b) => a.price - b.price);
 
   if (items.length === 0) {
     throw new Error('검색 결과를 0건 파싱했습니다. 응답 형식이 바뀌었을 수 있습니다.');

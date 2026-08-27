@@ -17,7 +17,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { MIN_PRICE, isTargetModel, isSoldOut, dropFarBelowMedian, parsePriceKRW } from './lib.mjs';
+import { MIN_PRICE, isTargetModel, isSoldOut, parsePriceKRW } from './lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, '..', 'data', 'naver-cafe-listings.json');
@@ -111,7 +111,7 @@ async function fetchListings() {
       }
     }
 
-    const items = dropFarBelowMedian(candidates).sort((a, b) => a.price - b.price);
+    const items = candidates.sort((a, b) => a.price - b.price);
 
     if (items.length === 0) {
       throw new Error(
