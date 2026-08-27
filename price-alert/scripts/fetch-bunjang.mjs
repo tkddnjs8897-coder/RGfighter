@@ -64,6 +64,13 @@ async function fetchListings() {
 
       if (rawSample.length < 30) rawSample.push({ id, title, price });
 
+      // 가격이 비정상적으로 낮은데(명목가로 추정) 모델명은 일치하는 경우,
+      // 진짜 가격이 다른 필드에 있는지 확인하기 위해 원본 전체를 로그에 남긴다.
+      if (Number.isFinite(price) && price > 0 && price < 10000 && isTargetModel(title)) {
+        console.log('--- 진단용: 명목가 의심 매물 원본 전체 ---');
+        console.log(JSON.stringify(item));
+      }
+
       if (!Number.isFinite(price) || price < MIN_PRICE || !id) continue;
       if (!isTargetModel(title)) continue;
       // 제목뿐 아니라 응답 필드 전체를 훑어 판매완료/거래완료 표시가 있으면 제외
