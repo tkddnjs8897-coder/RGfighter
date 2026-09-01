@@ -10,5 +10,9 @@
       "url": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc4ODIyOTY4MzIzN30.P4dSfTPe181PhEkpm_sbI01rRKKER5tTdg0NPSLgjBM",
       "platform": "바튜매"
     }
-  ]
+  ],
+  "lastError": {
+    "message": "카페 글에서 가격을 파싱하지 못했습니다 (cafe.naver.com 링크 58개 중 매칭 0건). 검색 결과 구조가 바뀌었거나, 접근이 차단됐거나, 지금 시점에 조건에 맞는 판매글이 없을 수 있습니다.",
+    "at": "2026-09-01T10:42:33.269Z"
+  }
 }
