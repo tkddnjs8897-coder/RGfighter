@@ -1,7 +1,7 @@
 {
   "query": "스즈키 GSX-S1000GX / GSX-S1000GX / s1000gx / gsx s1000gx",
   "source": "bunjang",
-  "fetchedAt": "2026-09-24T02:02:06.083Z",
+  "fetchedAt": "2026-09-24T10:42:20.579Z",
   "items": [
     {
       "id": "426058837",
@@ -22,6 +22,13 @@
       "title": "스즈키 s1000gx 25년식",
       "price": 10000000,
       "url": "https://m.bunjang.co.kr/products/434338551",
+      "platform": "번개장터"
+    },
+    {
+      "id": "434379940",
+      "title": "스즈키 GSX S 1000 GX 인기많은 스포츠 투어링 모델 !!",
+      "price": 17500000,
+      "url": "https://m.bunjang.co.kr/products/434379940",
       "platform": "번개장터"
     },
     {
