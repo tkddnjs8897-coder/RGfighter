@@ -5,8 +5,6 @@
 
   const FIELDS = ['org', 'sender', 'receiver', 'via', 'title', 'body', 'attach'];
   const FIELD_LABEL = { org: '기관명', sender: '발신명의', receiver: '수신', via: '경유', title: '제목', body: '본문', attach: '붙임' };
-  const CATS = ['항목', '표기', '띄어쓰기', '문장부호', '붙임', '구조', '쉬운말', '문장'];
-  const SEV_LABEL = { error: '꼭 고치기', warn: '고치기 권장', info: '참고' };
 
   const FONTS = {
     hmj: '"휴먼명조", "HYMyeongJo", "HCR Batang", "함초롬바탕", "Nanum Myeongjo", serif',
@@ -20,7 +18,7 @@
     compact: { font: 'hmj', size: 13, line: 150, spacing: 0 },
     gothic: { font: 'malgun', size: 12, line: 160, spacing: 0 },
   };
-  const DEFAULT_SETTINGS = Object.assign({ preset: 'basic', auto: true }, PRESETS.basic);
+  const DEFAULT_SETTINGS = Object.assign({ preset: 'basic', auto: true, gaps: true }, PRESETS.basic);
 
   const SAMPLE = {
     org: '○○시',
@@ -35,8 +33,10 @@
       '  2) 장소 : 시청 대회의실',
       '  3) 대상 : 전 직원(약 300명)',
       '3. 참석자 명단은 명일까지 유첨 서식에 따라 제출하여 주시기 바랍니다.',
+      '붙임 1. 참석자 명단 서식',
+      '2. 청렴 서약서 1부. 끝',
     ].join('\n'),
-    attach: '참석자 명단 서식\n청렴 서약서 1부',
+    attach: '',
   };
   const EMPTY = { org: '', sender: '', receiver: '', via: '', title: '', body: '', attach: '' };
 
@@ -51,7 +51,6 @@
   let state = Object.assign({}, EMPTY, load('gongmun.draft') || SAMPLE);
   let settings = Object.assign({}, DEFAULT_SETTINGS, load('gongmun.settings') || {});
   let result = null;
-  const hiddenCats = new Set();
 
   const el = f => $('#f-' + f);
 
@@ -81,52 +80,78 @@
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const showSpaces = s => esc(s).replace(/ /g, '<span class="sp">␣</span>');
 
-  function renderFilter() {
-    const counts = {};
-    result.issues.forEach(i => { counts[i.cat] = (counts[i.cat] || 0) + 1; });
-    $('#catFilter').innerHTML = CATS.filter(c => counts[c]).map(c =>
-      `<button class="chip${hiddenCats.has(c) ? ' off' : ''}" data-cat="${c}" aria-pressed="${!hiddenCats.has(c)}">${c} <b>${counts[c]}</b></button>`
-    ).join('');
+  const GROUPS = [
+    ['error', '꼭 고쳐야 할 곳'],
+    ['warn', '고치면 좋은 곳'],
+    ['info', '참고'],
+  ];
+
+  function issueHtml(i) {
+    const text = state[i.field] || '';
+    let snippet = '';
+    if (i.from !== undefined && (i.before || i.after)) {
+      const pre = text.slice(Math.max(0, i.from - 12), i.from).replace(/\n/g, ' ');
+      const post = text.slice(i.to, i.to + 12).replace(/\n/g, ' ');
+      snippet = `<div class="snippet">${i.from > 12 ? '…' : ''}${esc(pre)}` +
+        (i.before ? `<del>${showSpaces(i.before)}</del>` : '') +
+        (i.after !== null && i.after !== '' ? `<ins>${showSpaces(i.after)}</ins>` : i.after === '' ? '<ins class="rm">삭제</ins>' : '') +
+        `${esc(post)}${i.to + 12 < text.length ? '…' : ''}</div>`;
+    }
+    const btns = [];
+    if (i.from !== undefined) btns.push(`<button class="small ghost" data-act="goto" data-id="${i.id}">입력 칸에서 보기</button>`);
+    if (i.after !== null) btns.push(`<button class="small primary" data-act="fix" data-id="${i.id}">고치기</button>`);
+    return `<li class="issue ${i.sev}">
+      <div class="issueMeta"><span class="tag">${i.cat}</span><span>${FIELD_LABEL[i.field]}${i.auto ? ' · 완성본에 자동 반영됨' : ''}</span></div>
+      <p>${esc(i.msg)}</p>${snippet}
+      ${btns.length ? `<div class="issueBtns">${btns.join('')}</div>` : ''}
+    </li>`;
   }
 
   function renderIssues() {
-    renderFilter();
-    const list = result.issues.filter(i => !hiddenCats.has(i.cat));
-    const fixable = result.issues.filter(i => i.after !== null && i.bulk && !hiddenCats.has(i.cat)).length;
-    const errors = result.issues.filter(i => i.sev === 'error').length;
-    $('#issueCount').textContent = result.issues.length ? `${result.issues.length}건${errors ? ` · 꼭 고치기 ${errors}` : ''}` : '';
+    const all = result.issues;
+    const count = sev => all.filter(i => i.sev === sev && !i.auto).length;
+    const errors = count('error');
+    const warns = count('warn');
+    const infos = all.filter(i => i.sev === 'info').length;
+    const fixable = all.filter(i => i.after !== null && i.bulk).length;
+    const todo = errors + warns;
+
+    $('#summary').classList.toggle('clean', !todo);
+    $('#summaryTitle').textContent = todo ? `고칠 곳 ${todo}군데` : '규격에 맞게 작성됐어요';
+    $('#issueCount').textContent = [errors && `꼭 고치기 ${errors}`, warns && `권장 ${warns}`, infos && `참고 ${infos}`].filter(Boolean).join(' · ') || '완성본을 복사해서 쓰면 돼요';
     $('#btnFixAll').disabled = !fixable;
     $('#btnFixAll').textContent = fixable ? `한 번에 고치기 (${fixable})` : '한 번에 고치기';
+    document.querySelectorAll('.tabBadge').forEach(b => {
+      b.textContent = todo ? todo : '✓';
+      b.classList.toggle('ok', !todo);
+    });
 
-    if (!list.length) {
-      $('#issueList').innerHTML = `<li class="empty">${result.issues.length ? '선택한 분류에 해당하는 항목이 없습니다.' : '고칠 곳이 없습니다. 👍'}</li>`;
+    if (!all.length) {
+      $('#issueList').innerHTML = '<div class="empty"><strong>고칠 곳이 없어요</strong>완성본 탭에서 복사해서 쓰세요.</div>';
       return;
     }
-    $('#issueList').innerHTML = list.map(i => {
-      const text = state[i.field] || '';
-      let snippet = '';
-      if (i.from !== undefined && (i.before || i.after)) {
-        const pre = text.slice(Math.max(0, i.from - 10), i.from).replace(/\n/g, ' ');
-        const post = text.slice(i.to, i.to + 10).replace(/\n/g, ' ');
-        snippet = `<div class="snippet">${i.from > 10 ? '…' : ''}${esc(pre)}` +
-          (i.before ? `<del>${showSpaces(i.before)}</del>` : '') +
-          (i.after !== null && i.after !== '' ? `<ins>${showSpaces(i.after)}</ins>` : i.after === '' ? '<ins class="rm">삭제</ins>' : '') +
-          `${esc(post)}${i.to + 10 < text.length ? '…' : ''}</div>`;
-      }
-      const btns = [];
-      if (i.from !== undefined) btns.push(`<button class="small ghost" data-act="goto" data-id="${i.id}">위치</button>`);
-      if (i.after !== null) btns.push(`<button class="small" data-act="fix" data-id="${i.id}">고치기</button>`);
-      return `<li class="issue ${i.sev}">
-        <div class="issueHead"><span class="sev">${i.auto ? '자동 처리' : SEV_LABEL[i.sev]}</span><span class="tag">${i.cat}</span><span class="where">${FIELD_LABEL[i.field]}</span></div>
-        <p>${esc(i.msg)}</p>${snippet}
-        ${btns.length ? `<div class="issueBtns">${btns.join('')}</div>` : ''}
-      </li>`;
+    $('#issueList').innerHTML = GROUPS.map(([sev, title]) => {
+      const list = all.filter(i => i.sev === sev);
+      if (!list.length) return '';
+      return `<section class="group ${sev}"><h3 class="groupHead"><span class="dot"></span>${title} ${list.length}</h3>
+        <ul class="issueUl">${list.map(issueHtml).join('')}</ul></section>`;
     }).join('');
+  }
+
+  // ───── 화면(탭) ─────
+  const isWide = () => window.matchMedia('(min-width: 980px)').matches;
+  function setView(v) {
+    document.body.dataset.view = v;
+    const shown = isWide() && v === 'input' ? 'issues' : v;
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === shown)));
+    if (shown === 'preview') requestAnimationFrame(fitPage);
+    if (!isWide()) window.scrollTo(0, 0);
   }
 
   function findIssue(id) { return result.issues.find(i => i.id === +id); }
 
   function gotoIssue(i) {
+    if (!isWide()) setView('input');
     const input = el(i.field);
     input.focus();
     if (i.from !== undefined) {
@@ -159,19 +184,26 @@
   }
 
   // inline: 복사용(다른 프로그램에 붙여 넣을 때 서식이 유지되도록 pt 단위 인라인 스타일)
+  // 기호 뒤 띄어쓰기는 실제 공백 문자로 넣어, 한글에 붙여 넣어도 2타·1타 간격이 그대로 남습니다.
   function docHtml(doc, inline) {
     const v = styleVars();
     const u = em => (inline ? `${(em * v.size).toFixed(1)}pt` : `${em}em`);
     const P = (css, html) => `<p style="margin:0;${css}">${html}</p>`;
-    const endMark = '&nbsp;&nbsp;끝.';
+    const sp = n => (inline ? '&nbsp;'.repeat(n) : '<span class="gap">&nbsp;</span>'.repeat(n));
+    // 기호(또는 라벨)와 뒤 공백을 한 덩어리로 묶어 내어쓰기 폭을 맞춥니다.
+    const lead = (text, gaps) => {
+      const w = (R.textWidth(text) + gaps) / 2;
+      return { w, html: `<span style="display:inline-block;width:${u(w)};text-indent:0;white-space:nowrap">${esc(text)}${sp(gaps)}</span>` };
+    };
+    const endMark = sp(2) + '<span class="endMark">끝.</span>';
     const parts = [];
+    const big = inline ? (v.size * 1.4).toFixed(1) + 'pt' : '1.4em';
 
-    if (doc.org) parts.push(P(`text-align:center;font-weight:bold;font-size:${inline ? (v.size * 1.4).toFixed(1) + 'pt' : '1.4em'};margin-bottom:${u(0.8)}`, esc(doc.org)));
+    if (doc.org) parts.push(P(`text-align:center;font-weight:bold;font-size:${big};margin-bottom:${u(0.8)}`, esc(doc.org)));
 
     const head = (label, value, extra) => {
-      const w = R.textWidth(label) / 2 + 1; // 라벨 + 2타
-      return P(`padding-left:${u(w)};text-indent:-${u(w)};${extra || ''}`,
-        `<span style="display:inline-block;width:${u(w)};text-indent:0">${label}</span>${esc(value)}`);
+      const l = lead(label, 2);
+      return P(`padding-left:${u(l.w)};text-indent:-${u(l.w)};${extra || ''}`, l.html + esc(value));
     };
     parts.push(head('수신', doc.receiver));
     if (doc.via) parts.push(head('(경유)', doc.via));
@@ -182,10 +214,8 @@
       const isLast = idx === blocks.length - 1;
       const tail = isLast && doc.hasBody && !doc.attach.length ? endMark : '';
       if (b.type === 'item') {
-        const mw = R.markerSpan(b) / 2;
-        const left = (b.level - 1) + mw;
-        parts.push(P(`padding-left:${u(left)};text-indent:-${u(mw)}`,
-          `<span style="display:inline-block;width:${u(mw)};text-indent:0">${esc(b.marker)}</span>${esc(b.content)}${tail}`));
+        const l = lead(b.marker, 1);
+        parts.push(P(`padding-left:${u(b.level - 1 + l.w)};text-indent:-${u(l.w)}`, l.html + esc(b.content) + tail));
       } else {
         const left = b.level === 0 ? 0 : (b.level - 1) + R.markerSpan(b) / 2;
         parts.push(P(`padding-left:${u(left)}`, esc(b.content) + tail));
@@ -193,22 +223,19 @@
     });
 
     if (doc.attach.length) {
-      const lw = 3; // '붙임' 2글자 + 2타
       const multi = doc.attach.length > 1;
-      const mw = multi ? 1.5 : 0;
       doc.attach.forEach((a, i) => {
         const tail = i === doc.attach.length - 1 && doc.hasBody ? endMark : '';
-        const label = i === 0 ? '붙임' : '';
-        parts.push(P(`padding-left:${u(lw + mw)};text-indent:-${u(lw + mw)};${i === 0 ? `margin-top:${u(0.6)}` : ''}`,
-          `<span style="display:inline-block;width:${u(lw)};text-indent:0">${label}</span>` +
-          (multi ? `<span style="display:inline-block;width:${u(mw)};text-indent:0">${i + 1}.</span>` : '') +
-          esc(a) + tail));
+        // 첫 줄은 '붙임' + 2타, 다음 줄은 같은 폭(6타)만큼 비워 번호를 맞춥니다.
+        const label = i === 0 ? lead('붙임', 2) : { w: 3, html: `<span style="display:inline-block;width:${u(3)};text-indent:0">${inline ? '&nbsp;'.repeat(6) : ''}</span>` };
+        const num = multi ? lead(`${i + 1}.`, 1) : { w: 0, html: '' };
+        const w = label.w + num.w;
+        parts.push(P(`padding-left:${u(w)};text-indent:-${u(w)};${i === 0 ? `margin-top:${u(0.6)}` : ''}`,
+          label.html + num.html + esc(a) + tail));
       });
     }
 
-    if (doc.sender) {
-      parts.push(P(`text-align:center;font-weight:bold;font-size:${inline ? (v.size * 1.4).toFixed(1) + 'pt' : '1.4em'};margin-top:${u(3)}`, esc(doc.sender)));
-    }
+    if (doc.sender) parts.push(P(`text-align:center;font-weight:bold;font-size:${big};margin-top:${u(3)}`, esc(doc.sender)));
 
     const wrap = `font-family:${v.font.replace(/"/g, "'")};font-size:${v.size}pt;line-height:${v.line}%;letter-spacing:${v.spacing / 100}em;color:#000`;
     return inline ? `<div style="${wrap}">${parts.join('')}</div>` : parts.join('');
@@ -229,6 +256,7 @@
   function fitPage() {
     const wrap = $('#pageWrap');
     const page = $('#page');
+    if (!wrap.clientWidth) return; // 숨겨진 탭
     page.style.transform = 'none';
     const scale = Math.min(1, wrap.clientWidth / page.offsetWidth);
     page.style.transform = `scale(${scale})`;
@@ -243,6 +271,8 @@
     $('#s-line').value = settings.line;
     $('#s-spacing').value = settings.spacing;
     $('#s-auto').checked = settings.auto;
+    const fontName = $('#s-font').selectedOptions[0] ? $('#s-font').selectedOptions[0].textContent : '';
+    $('#settingsNow').textContent = `${fontName} ${settings.size}pt · ${settings.line}%`;
   }
   function onSetting(e) {
     if (e.target.id === 's-preset') {
@@ -330,17 +360,17 @@
       if (!i) return;
       if (b.dataset.act === 'fix') fixIssue(i); else gotoIssue(i);
     });
-    $('#catFilter').addEventListener('click', e => {
-      const b = e.target.closest('.chip');
-      if (!b) return;
-      const c = b.dataset.cat;
-      if (hiddenCats.has(c)) hiddenCats.delete(c); else hiddenCats.add(c);
-      renderIssues();
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setView(t.dataset.view)));
+    $('#s-gaps').checked = !!settings.gaps;
+    $('#page').classList.toggle('showGaps', !!settings.gaps);
+    $('#s-gaps').addEventListener('change', e => {
+      settings.gaps = e.target.checked;
+      $('#page').classList.toggle('showGaps', settings.gaps);
+      save('gongmun.settings', settings);
     });
     $('#btnFixAll').addEventListener('click', () => {
       readFields();
-      const cats = new Set(CATS.filter(c => !hiddenCats.has(c)));
-      const r = R.fixAll(state, { autoNumber: settings.auto }, cats);
+      const r = R.fixAll(state, { autoNumber: settings.auto });
       state = r.state;
       writeFields();
       update();
@@ -370,11 +400,12 @@
     $('#btnCopyText').addEventListener('click', copyText);
     $('#btnCopyRich').addEventListener('click', copyRich);
     if ($('#btnPrint')) $('#btnPrint').addEventListener('click', () => window.print());
-    window.addEventListener('resize', fitPage);
+    window.addEventListener('resize', () => { setView(document.body.dataset.view); fitPage(); });
     window.addEventListener('beforeprint', () => { $('#page').style.transform = 'none'; });
     window.addEventListener('afterprint', fitPage);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitPage);
 
+    setView(isWide() ? 'issues' : 'input');
     update();
   }
 

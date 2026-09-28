@@ -17,6 +17,11 @@ for (const ok of ['그것은 이것과 다르다', '참석자가 3명일 경우'
 }
 // 끝 표시와 붙임
 const doc = R.check({ title: 't', body: '1. 내용\n끝', attach: '계획서\n명단 1부' });
-assert.ok(R.toPlainText(doc.doc).includes('붙임  1. 계획서\n      2. 명단 1부  끝.'));
+assert.ok(R.toPlainText(doc.doc).includes('붙임  1. 계획서\n      2. 명단 1부.  끝.'));
 assert.ok(R.toPlainText(R.check({ title: 't', body: '1. 내용' }).doc).includes('1. 내용  끝.'));
+// 본문에 적은 붙임도 '붙임' 다음 2타, 끝. 앞 2타로 정리
+const inBody = { title: 't', receiver: 'x', body: '1. 내용입니다.\n붙임 1. 계획서 1부.\n2. 명단 1부. 끝.' };
+assert.ok(R.toPlainText(R.check(inBody).doc).endsWith('붙임  1. 계획서 1부.\n      2. 명단 1부.  끝.'));
+assert.strictEqual(R.fixAll(inBody).state.body, '1. 내용입니다.\n붙임  1. 계획서 1부.\n2. 명단 1부.  끝.');
+assert.strictEqual(R.fixAll({ title: 't', receiver: 'x', body: '내용입니다. 끝' }).state.body, '내용입니다.  끝.');
 console.log('모든 테스트 통과');

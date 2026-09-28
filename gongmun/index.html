@@ -2,19 +2,19 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>공문 바로쓰기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-view="input">
 
 <header class="topbar">
   <div class="brand">
     <h1>공문 바로쓰기</h1>
-    <p>내용만 입력하면 공문서 규격에 맞게 정리하고, 고칠 곳을 알려 줍니다.</p>
+    <p>내용만 적으면 공문 규격대로 정리하고, 고칠 곳을 알려 드려요.</p>
   </div>
   <div class="topActions">
     <button id="btnSample" class="ghost">예시 불러오기</button>
@@ -22,77 +22,97 @@
   </div>
 </header>
 
+<nav class="tabs mobileTabs" aria-label="화면 선택">
+  <button class="tab" data-view="input">✏️ 입력</button>
+  <button class="tab" data-view="issues">🔍 고칠 곳 <span class="badge tabBadge"></span></button>
+  <button class="tab" data-view="preview">📄 완성본</button>
+</nav>
+
 <main class="layout">
   <!-- 입력 -->
-  <section class="panel inputPanel">
-    <h2>1. 내용 입력</h2>
-    <div class="grid2">
-      <label>기관명 <small>(선택)</small><input id="f-org" placeholder="예) ○○시"></label>
-      <label>발신명의 <small>(선택)</small><input id="f-sender" placeholder="예) ○○시장"></label>
+  <section id="pane-input" class="pane paneInput" aria-label="내용 입력">
+    <div class="card">
+      <h2>문서 머리</h2>
+      <div class="grid2">
+        <div><label for="f-org">기관명 <small>선택</small></label><input id="f-org" placeholder="예) ○○시"></div>
+        <div><label for="f-sender">발신명의 <small>선택</small></label><input id="f-sender" placeholder="예) ○○시장"></div>
+      </div>
+      <label for="f-receiver">수신</label>
+      <input id="f-receiver" placeholder="예) 수신자 참조 · 내부결재 · ○○과장">
+      <label for="f-via">경유 <small>있을 때만</small></label>
+      <input id="f-via">
+      <label for="f-title">제목</label>
+      <input id="f-title" class="titleInput" placeholder="예) 2026년 하반기 청렴교육 실시 알림">
     </div>
-    <label>수신<input id="f-receiver" placeholder="예) 수신자 참조 / 내부결재 / ○○과장"></label>
-    <label>경유 <small>(있을 때만)</small><input id="f-via" placeholder=""></label>
-    <label>제목<input id="f-title" placeholder="예) 2026년 하반기 청렴 교육 실시 알림"></label>
-    <label>본문
-      <textarea id="f-body" rows="12" spellcheck="false" placeholder="한 줄에 한 항목씩 적으세요.&#10;1. 관련: ...&#10;2. ...&#10;  가. ...&#10;&#10;번호가 틀려도 자동으로 1. → 가. → 1) → 가) 순서로 정리됩니다."></textarea>
-    </label>
-    <label>붙임 <small>(한 줄에 하나씩, 없으면 비워 두세요)</small>
+
+    <div class="card">
+      <h2>본문</h2>
+      <p class="hint">한 줄에 한 항목씩 적으세요. 번호가 틀려도 <b>1. → 가. → 1) → 가)</b> 차례로 정리돼요.</p>
+      <textarea id="f-body" rows="14" spellcheck="false" placeholder="1. 관련: ...&#10;2. ... 알려 드립니다.&#10;  가. 일시: ...&#10;  나. 장소: ..."></textarea>
+      <label for="f-attach">붙임 <small>한 줄에 하나씩 · 없으면 비워 두세요</small></label>
       <textarea id="f-attach" rows="3" spellcheck="false" placeholder="예) 교육 계획서 1부"></textarea>
-    </label>
+      <p class="hint">'붙임'과 '끝.'은 규격대로 자동으로 붙어요: <code>붙임␣␣계획서 1부.␣␣끝.</code></p>
+    </div>
   </section>
 
-  <!-- 검사 결과 -->
-  <section class="panel issuePanel">
-    <div class="panelHead">
-      <h2>2. 고칠 곳 <span id="issueCount" class="count"></span></h2>
+  <!-- 오른쪽: 고칠 곳 / 완성본 -->
+  <section class="pane paneRight" aria-label="결과">
+    <nav class="tabs desktopTabs" aria-label="결과 보기">
+      <button class="tab" data-view="issues">🔍 고칠 곳 <span class="badge tabBadge"></span></button>
+      <button class="tab" data-view="preview">📄 완성본</button>
+    </nav>
+    <div class="summary" id="summary">
+      <div class="summaryText">
+        <strong id="summaryTitle">검사 중…</strong>
+        <span id="issueCount" class="summaryCounts"></span>
+      </div>
       <button id="btnFixAll" class="primary">한 번에 고치기</button>
     </div>
-    <div id="catFilter" class="chips" role="group" aria-label="분류"></div>
-    <ul id="issueList" class="issues"></ul>
-    <p class="note">'한 번에 고치기'는 요일 오류처럼 사람이 판단해야 하는 항목은 건너뜁니다. 각 항목의 <b>고치기</b>를 눌러 따로 반영하세요.</p>
-  </section>
 
-  <!-- 미리보기 -->
-  <section class="panel previewPanel">
-    <div class="panelHead">
-      <h2>3. 완성본</h2>
-      <div class="btnRow">
-        <button id="btnCopyRich">서식 포함 복사</button>
-        <button id="btnCopyText">텍스트 복사</button>
-        <button id="btnPrint">인쇄 · PDF</button>
-      </div>
+    <div id="pane-issues" class="subpane">
+      <div id="issueList" class="issues"></div>
+      <p class="note">'한 번에 고치기'는 요일 오류처럼 직접 확인해야 하는 항목은 건너뛰어요. 그런 항목은 <b>고치기</b>를 눌러 하나씩 반영하세요.</p>
     </div>
 
-    <details class="settings" open>
-      <summary>글꼴 · 크기 · 줄 간격</summary>
-      <div class="settingGrid">
-        <label>서식
-          <select id="s-preset">
-            <option value="basic">기본 · 명조 15pt</option>
-            <option value="compact">촘촘 · 명조 13pt</option>
-            <option value="gothic">고딕 · 12pt</option>
-            <option value="custom">직접 설정</option>
-          </select>
-        </label>
-        <label>글꼴
-          <select id="s-font">
-            <option value="hmj">휴먼명조</option>
-            <option value="hcr">함초롬바탕</option>
-            <option value="batang">바탕</option>
-            <option value="malgun">맑은 고딕</option>
-            <option value="dotum">돋움</option>
-          </select>
-        </label>
-        <label>글자 크기(pt)<input id="s-size" type="number" min="9" max="20" step="0.5"></label>
-        <label>줄 간격(%)<input id="s-line" type="number" min="100" max="250" step="10"></label>
-        <label>자간(%)<input id="s-spacing" type="number" min="-15" max="15" step="1"></label>
-        <label class="check"><input id="s-auto" type="checkbox"> 항목 번호 자동 정리</label>
+    <div id="pane-preview" class="subpane">
+      <div class="toolbar">
+        <button id="btnCopyRich" class="primary">한글에 붙여 넣기용 복사</button>
+        <button id="btnCopyText">텍스트만 복사</button>
+        <button id="btnPrint">인쇄 · PDF</button>
+        <label class="toggle"><input id="s-gaps" type="checkbox"> 띄어쓰기 표시</label>
       </div>
-      <p class="note">PC에 해당 글꼴이 없으면 비슷한 글꼴로 미리 보여 줍니다. 기관마다 정해 둔 서식이 있으면 그 기준에 맞추세요.</p>
-    </details>
 
-    <div id="pageWrap" class="pageWrap">
-      <div id="page" class="page"><div id="doc" class="doc"></div></div>
+      <details class="settings" id="settingsBox">
+        <summary>글꼴 · 크기 · 줄 간격 <span id="settingsNow" class="muted"></span></summary>
+        <div class="settingGrid">
+          <label>서식
+            <select id="s-preset">
+              <option value="basic">기본 · 명조 15pt</option>
+              <option value="compact">촘촘 · 명조 13pt</option>
+              <option value="gothic">고딕 · 12pt</option>
+              <option value="custom">직접 설정</option>
+            </select>
+          </label>
+          <label>글꼴
+            <select id="s-font">
+              <option value="hmj">휴먼명조</option>
+              <option value="hcr">함초롬바탕</option>
+              <option value="batang">바탕</option>
+              <option value="malgun">맑은 고딕</option>
+              <option value="dotum">돋움</option>
+            </select>
+          </label>
+          <label>글자 크기(pt)<input id="s-size" type="number" min="9" max="20" step="0.5"></label>
+          <label>줄 간격(%)<input id="s-line" type="number" min="100" max="250" step="10"></label>
+          <label>자간(%)<input id="s-spacing" type="number" min="-15" max="15" step="1"></label>
+          <label class="toggle"><input id="s-auto" type="checkbox"> 항목 번호 자동 정리</label>
+        </div>
+        <p class="note">PC에 해당 글꼴이 없으면 비슷한 글꼴로 보여 줘요. 기관에서 정한 서식이 있으면 그 기준에 맞추세요.</p>
+      </details>
+
+      <div id="pageWrap" class="pageWrap">
+        <div id="page" class="page"><div id="doc" class="doc"></div></div>
+      </div>
     </div>
   </section>
 </main>

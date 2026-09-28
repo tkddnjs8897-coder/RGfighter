@@ -388,11 +388,18 @@
     let offset = 0;
     let hadEnd = false;
 
+    // 본문 안에 '붙임'을 적었다면 그 줄부터 끝까지를 붙임으로 떼어 냅니다.
+    let attachLine = lines.findIndex(l => ATTACH_LABEL_RE.test(l));
+    if (attachLine < 0) attachLine = lines.length;
+    let attachOffset = 0;
+    for (let i = 0; i < attachLine; i++) attachOffset += lines[i].length + 1;
+
     // 마지막 줄의 '끝' 표시는 떼어 두었다가 규격대로 다시 붙입니다.
     let lastIdx = -1;
-    for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) { lastIdx = i; break; }
+    for (let i = attachLine - 1; i >= 0; i--) if (lines[i].trim()) { lastIdx = i; break; }
 
     lines.forEach((line, i) => {
+      if (i >= attachLine) return;
       let raw = line;
       if (i === lastIdx && END_RE.test(raw)) {
         hadEnd = true;
@@ -460,13 +467,21 @@
       offset += line.length + 1;
     });
 
-    return { blocks, issues, hadEnd };
+    return {
+      blocks, issues, hadEnd,
+      attachText: lines.slice(attachLine).join('\n'),
+      attachOffset: Math.min(attachOffset, body.length),
+    };
   }
 
   // ───────────────────────── 붙임 ─────────────────────────
   const QTY_RE = /(\d+|한|두|세)[ \t]*(부|매|권|개|종|장|건|식|점|철)\.?$/;
+  const ATTACH_LABEL_RE = /^[ \t\u3000]*붙[ \t]*임(?![가-힣])/;
 
-  function buildAttach(text) {
+  // field: 붙임을 적은 칸, base: 그 칸 안에서 붙임이 시작하는 위치
+  function buildAttach(text, field, base) {
+    field = field || 'attach';
+    base = base || 0;
     const issues = [];
     const items = [];
     const lines = text.split('\n');
@@ -481,26 +496,38 @@
         hadEnd = true;
         body = body.replace(END_RE, '');
       }
+      // 편람: '붙임' 다음은 2타(스페이스 두 번) 띄웁니다.
+      const label = body.match(/^([ \t\u3000]*)(붙[ \t]*임)([ \t\u3000]*)(?=\S)/);
+      if (label && field === 'body' && (label[2] !== '붙임' || label[3] !== '  ')) {
+        const from = base + offset + label[1].length;
+        issues.push({
+          field, cat: '붙임', sev: 'error',
+          msg: "'붙임' 다음에는 스페이스를 두 번(2타) 띄웁니다. 예) 붙임  계획서 1부.  끝.",
+          from, to: from + label[2].length + label[3].length,
+          before: label[2] + label[3], after: '붙임  ', bulk: true,
+        });
+      }
       const lead = body.match(/^[ \t　]*(?:붙[ \t]*임[ \t　]*)?(?:\d{1,2}[.)][ \t　]*)?/)[0];
       const content = body.slice(lead.length).replace(/[ \t　]+$/, '');
       if (content) {
-        const endPos = offset + lead.length + content.length;
+        const endPos = base + offset + lead.length + content.length;
         if (!QTY_RE.test(content)) {
           const dot = content.endsWith('.');
           issues.push({
-            field: 'attach', cat: '붙임', sev: 'warn',
+            field, cat: '붙임', sev: 'warn',
             msg: "붙임물 이름 뒤에는 수량을 '1부.'처럼 적습니다.",
             from: dot ? endPos - 1 : endPos, to: endPos,
             before: dot ? '.' : '', after: ' 1부.', bulk: true,
           });
         } else if (!content.endsWith('.')) {
           issues.push({
-            field: 'attach', cat: '붙임', sev: 'warn',
+            field, cat: '붙임', sev: 'warn',
             msg: "붙임물 수량 뒤에는 온점(.)을 찍습니다. 예) 계획서 1부.",
             from: endPos, to: endPos, before: '', after: '.', bulk: true,
           });
         }
-        items.push(content);
+        // 완성본에는 수량 뒤 온점까지 규격대로 넣습니다.
+        items.push(QTY_RE.test(content) && !content.endsWith('.') ? content + '.' : content);
       }
       offset += line.length + 1;
     });
@@ -544,25 +571,41 @@
       issues.push({ field: 'body', cat: '구조', sev: 'error', msg: '본문이 비어 있습니다.' });
     }
     const body = buildBody(s.body, opts);
+    const inBody = buildAttach(body.attachText, 'body', body.attachOffset);
     const attach = buildAttach(s.attach);
-    issues = issues.concat(body.issues, attach.issues);
+    const attachItems = inBody.items.concat(attach.items);
+    issues = issues.concat(body.issues, inBody.issues, attach.issues);
 
     for (const f of ['title', 'body', 'attach']) {
       issues = issues.concat(runTextRules(f, s[f]));
     }
     issues = issues.concat(longSentences('body', s.body, opts.sentenceLimit));
 
-    if (s.body.trim()) {
-      if (attach.items.length) {
-        issues.push({ field: 'attach', cat: '구조', sev: 'info', auto: true,
-          msg: "붙임이 있으므로 '끝.'은 마지막 붙임 뒤에 2타 띄우고 자동으로 붙였습니다." });
+    // 원문에 적은 '끝' 표시가 규격('  끝.')과 다르면 알려 줍니다.
+    const TAIL_END = /(\S)([ \t\u3000\n]*)(-[ \t]*끝[ \t]*-|\(끝\)|끝\.?)[ \t\u3000\n]*$/;
+    const endOwner = attach.items.length ? 'attach' : 'body';
+    for (const f of ['body', 'attach']) {
+      const m = s[f].match(TAIL_END);
+      if (!m) continue;
+      const from = m.index + 1;
+      const before = s[f].slice(from);
+      if (f !== endOwner) {
+        issues.push({ field: f, cat: '붙임', sev: 'warn', from, to: s[f].length, before, after: '', bulk: true,
+          msg: "붙임이 있으면 '끝.'은 본문이 아니라 마지막 붙임 뒤에 붙입니다." });
+      } else if (before !== '  끝.') {
+        issues.push({ field: f, cat: '구조', sev: 'warn', from, to: s[f].length, before, after: '  끝.', bulk: true,
+          msg: "'끝.'은 마지막 글자 뒤에 스페이스를 두 번(2타) 띄우고 씁니다. 예) ...바랍니다.  끝." });
+      }
+    }
+
+    const hasBody = body.blocks.length > 0;
+    if (hasBody) {
+      if (attachItems.length) {
+        issues.push({ field: inBody.items.length ? 'body' : 'attach', cat: '붙임', sev: 'info', auto: true,
+          msg: "완성본에는 '붙임' 다음 2타 띄우고, 마지막 붙임 뒤에 2타 띄워 '끝.'을 붙였습니다." });
       } else if (!body.hadEnd) {
         issues.push({ field: 'body', cat: '구조', sev: 'info', auto: true,
-          msg: "본문 마지막 글자 뒤에 2타 띄우고 '끝.'을 자동으로 붙였습니다." });
-      }
-      if (/(^|\n)[ \t]*붙[ \t]*임/.test(s.body)) {
-        issues.push({ field: 'body', cat: '구조', sev: 'warn',
-          msg: "본문 안에 '붙임'이 있습니다. 붙임물은 아래 '붙임' 칸에 적으면 규격대로 정리됩니다." });
+          msg: "완성본에는 본문 마지막 글자 뒤에 2타 띄우고 '끝.'을 붙였습니다." });
       }
     }
 
@@ -587,9 +630,9 @@
       via: s.via.trim(),
       title: title.replace(/[ \t]*[.。]$/, ''),
       blocks: body.blocks,
-      attach: attach.items,
+      attach: attachItems,
       sender: s.sender.trim(),
-      hasBody: !!s.body.trim(),
+      hasBody,
     };
     return { issues: final, doc };
   }
