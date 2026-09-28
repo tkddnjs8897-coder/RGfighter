@@ -41,11 +41,32 @@
     color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #15181c;
+  --panel: #1f2328;
+  --ink: #e6e8eb;
+  --muted: #9aa3ad;
+  --line: #353b42;
+  --accent: #5b9be0;
+  --accent-ink: #0d1117;
+  --accent-soft: #1d2a3a;
+  --error: #ff8a80;
+  --error-soft: #3a1f1d;
+  --warn: #f0b35a;
+  --warn-soft: #362a17;
+  --info: #86c79d;
+  --info-soft: #1b2e23;
+  --del: #4a2523;
+  --ins: #1e3d27;
+  --paper-shadow: 0 2px 14px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
   background: var(--bg);
+  min-height: 100%;
   color: var(--ink);
   font-family: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   font-size: 15px;

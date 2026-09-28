@@ -352,7 +352,16 @@
       update();
     });
     $('#btnClear').addEventListener('click', () => {
-      if (Object.values(state).some(v => v.trim()) && !confirm('입력한 내용을 모두 지울까요?')) return;
+      // 브라우저 확인 창 대신 버튼을 한 번 더 누르게 합니다.
+      const btn = $('#btnClear');
+      if (Object.values(state).some(v => v.trim()) && !btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.textContent = '한 번 더 누르면 지워집니다';
+        setTimeout(() => { delete btn.dataset.armed; btn.textContent = '새로 쓰기'; }, 3000);
+        return;
+      }
+      delete btn.dataset.armed;
+      btn.textContent = '새로 쓰기';
       state = Object.assign({}, EMPTY);
       writeFields();
       update();
@@ -360,7 +369,7 @@
     });
     $('#btnCopyText').addEventListener('click', copyText);
     $('#btnCopyRich').addEventListener('click', copyRich);
-    $('#btnPrint').addEventListener('click', () => window.print());
+    if ($('#btnPrint')) $('#btnPrint').addEventListener('click', () => window.print());
     window.addEventListener('resize', fitPage);
     window.addEventListener('beforeprint', () => { $('#page').style.transform = 'none'; });
     window.addEventListener('afterprint', fitPage);
