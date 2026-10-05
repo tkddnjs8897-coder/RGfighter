@@ -1,18 +1,14 @@
 {
   "query": "GSX-S1000GX 중고 / GSX-S1000GX 판매 / GSX-S1000GX 팝니다",
   "source": "naver-cafe",
-  "fetchedAt": "2026-10-05T02:51:47.297Z",
+  "fetchedAt": "2026-10-05T23:27:29.938Z",
   "items": [
     {
-      "id": "https://cafe.naver.com/bikecargogo/9562349",
-      "title": "뜨루알렌555만 인용네이버 카페스즈키 gsx-s1000gx 텐덤자 편안할까요?",
-      "price": 16000000,
-      "url": "https://cafe.naver.com/bikecargogo/9562349?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1haS1icmllZmluZw.eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiYXJ0aWNsZUlkIjo5NTYyMzQ5LCJjYWZlVXJsIjoiYmlrZWNhcmdvZ28iLCJpc3N1ZWRBdCI6MTc5MTE2ODY5NDQwOH0._9x_7cR_M1DJpkWABZE-5QaazqnbSOJnizFXs1HvMO4&tc=naver_search_aib",
+      "id": "https://cafe.naver.com/bikecargogo/9130261",
+      "title": "스즈키 S1000gx 1750만원 판매합니다.",
+      "price": 17500000,
+      "url": "https://cafe.naver.com/bikecargogo/9130261?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImJpa2VjYXJnb2dvIiwiYXJ0aWNsZUlkIjo5MTMwMjYxLCJpc3N1ZWRBdCI6MTc5MTI0MjgyNTUwOH0.l_yt9CQqM7I-NYBIpYMo-d9mp-Xa843xOta49p9US5Q",
       "platform": "바튜매"
     }
-  ],
-  "lastError": {
-    "message": "카페 글에서 가격을 파싱하지 못했습니다 (cafe.naver.com 링크 55개 중 매칭 0건). 검색 결과 구조가 바뀌었거나, 접근이 차단됐거나, 지금 시점에 조건에 맞는 판매글이 없을 수 있습니다.",
-    "at": "2026-10-05T12:56:37.844Z"
-  }
+  ]
 }
