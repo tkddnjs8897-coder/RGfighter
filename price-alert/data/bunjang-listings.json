@@ -1,13 +1,20 @@
 {
   "query": "스즈키 GSX-S1000GX / GSX-S1000GX / s1000gx / gsx s1000gx",
   "source": "bunjang",
-  "fetchedAt": "2026-10-06T03:41:37.968Z",
+  "fetchedAt": "2026-10-06T12:22:21.589Z",
   "items": [
     {
       "id": "426058837",
       "title": "s1000gx 25년식 490만원 무사고 무꿍",
       "price": 4500000,
       "url": "https://m.bunjang.co.kr/products/426058837",
+      "platform": "번개장터"
+    },
+    {
+      "id": "434338551",
+      "title": "스즈키 s1000gx 25년식",
+      "price": 5000000,
+      "url": "https://m.bunjang.co.kr/products/434338551",
       "platform": "번개장터"
     },
     {
@@ -18,16 +25,9 @@
       "platform": "번개장터"
     },
     {
-      "id": "434338551",
-      "title": "스즈키 s1000gx 25년식",
-      "price": 10500000,
-      "url": "https://m.bunjang.co.kr/products/434338551",
-      "platform": "번개장터"
-    },
-    {
       "id": "437508155",
       "title": "2024 스즈키 s1000gx 팝니다",
-      "price": 16000000,
+      "price": 15500000,
       "url": "https://m.bunjang.co.kr/products/437508155",
       "platform": "번개장터"
     },
